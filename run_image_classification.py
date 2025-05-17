@@ -9,9 +9,9 @@ import matplotlib.pyplot as plt
 from typing import Dict, List, Tuple, Any
 
 from flower_dataset import build_flower_dataloaders, NUM_CLASSES
-from image_classifier import get_model, train_model
-from utils import seed_everything
-from rldatasets import get_dataloaders
+from simpler_grpo.image_classifier import get_model, train_model
+from simpler_grpo.utils import seed_everything
+from simpler_grpo.datasets import rldatasets
 
 
 def plot_training_history(history: Dict[str, List[float]], save_path: str = None):
