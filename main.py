@@ -14,8 +14,14 @@ from qwen_vl_utils import process_vision_info
 from transformers import PreTrainedModel, PreTrainedTokenizerBase, GenerationConfig
 # Import necessary modules and constants for PDF generation in main
 from PIL import Image as PILImage
-from simpler_grpo.utils import MAX_COMPLETIONS_PER_PAGE_PDF
-from reportlab.platypus import PageBreak # Import PageBreak
+from utils import MAX_COMPLETIONS_PER_PAGE_PDF
+from utils.reports import (
+    PageBreak,
+    _setup_pdf,
+    _add_example_header_to_pdf,
+    _add_completion_to_pdf,
+    _add_training_completion_to_pdf,
+)
 
 from simpler_grpo import llms
 from simpler_grpo import utils
@@ -57,7 +63,7 @@ def eval_on_test_set(
     exp_name_sanitized = os.path.basename(os.path.normpath(args.output_dir)).replace(" ", "_")
     pdf_filename = f'eval_results_round_{round_num}_exp_{exp_name_sanitized}.pdf'
     pdf_path = os.path.join(pdf_dir, pdf_filename)
-    doc, styles, story = utils._setup_pdf(pdf_path)
+    doc, styles, story = _setup_pdf(pdf_path)
 
     test_loader.reset()
 
@@ -95,9 +101,16 @@ def eval_on_test_set(
             model, tokenizer, img_path, prompt_to_use, device, args, eval=True)
 
         # Add example header to PDF (prompt_to_use will have target name for GUI)
-        utils._add_example_header_to_pdf(story, styles, img_path, prompt_to_use,
-                                         answer_for_eval_and_pdf, num_examples, args.dataset_type,
-                                         is_hard=is_hard_example)
+        _add_example_header_to_pdf(
+            story,
+            styles,
+            img_path,
+            prompt_to_use,
+            answer_for_eval_and_pdf,
+            num_examples,
+            args.dataset_type,
+            is_hard=is_hard_example,
+        )
 
         for completion_idx, completion_text in enumerate(completions_text):
             # Path for saving image with plotted click (unique per completion)
@@ -706,7 +719,7 @@ if __name__ == "__main__":
         if log_data.get('round_num') == round_num: # Ensure data is from the correct round
             pdf_train_filename = f'training_log_round_{round_num}.pdf'
             pdf_train_path = os.path.join(train_pdf_dir, pdf_train_filename)
-            doc_train, styles_train, story_train = utils._setup_pdf(pdf_train_path)
+            doc_train, styles_train, story_train = _setup_pdf(pdf_train_path)
 
             # Determine prompt text and answer/target data based on type
             if args.dataset_type == 'gui':
@@ -720,10 +733,14 @@ if __name__ == "__main__":
                 answer_data_for_pdf = log_data['prompt_info'] # The answer string (same as prompt_info here)
 
             # Add PDF Header (Image, Prompt, Target Info)
-            utils._add_example_header_to_pdf(
-                story_train, styles_train, log_data['img_path'],
-                prompt_text_for_pdf, answer_data_for_pdf,
-                round_num, args.dataset_type
+            _add_example_header_to_pdf(
+                story_train,
+                styles_train,
+                log_data['img_path'],
+                prompt_text_for_pdf,
+                answer_data_for_pdf,
+                round_num,
+                args.dataset_type,
             )
 
             # Add Completions
@@ -782,7 +799,7 @@ if __name__ == "__main__":
                     img_path_for_pdf_entry = log_data['img_path'] # Use original image for non-GUI/non-CAPTCHA tasks
 
                 # Add completion details to story
-                utils._add_training_completion_to_pdf(
+                _add_training_completion_to_pdf(
                     story=story_train,
                     styles=styles_train,
                     completion_text=completion_text,
