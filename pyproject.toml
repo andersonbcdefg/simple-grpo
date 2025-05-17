@@ -1,0 +1,16 @@
+[project]
+name = "simple_grpo"
+version = "0.1.0"
+description = "grpo for the rest of us"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "transformers",
+    "datasets",
+    "torchvision",
+    "qwen-vl-utils",
+    "reportlab",
+    "matplotlib",
+    "numpy",
+    "accelerate",
+]

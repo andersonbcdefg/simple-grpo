@@ -37,6 +37,7 @@ image = (
     .pip_install("hf_xet")
     .run_commands(
         "git clone -b captcha --single-branch https://github.com/andersonbcdefg/simple-grpo.git ",
+        "cd simple-grpo && pip install -e .",
         force_build=True,
     )
     .workdir("simple-grpo")
