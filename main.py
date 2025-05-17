@@ -1,12 +1,11 @@
 """
-Implementation of GRPO, DeepSeek style training without external libraries 
+Implementation of GRPO, DeepSeek style training without external libraries
 """
 import os
 import json
 import torch
 import argparse
 from tqdm import tqdm
-import soundfile as sf
 from typing import Optional, Any
 from shutil import copyfile
 from collections import defaultdict
@@ -14,7 +13,7 @@ from qwen_vl_utils import process_vision_info
 
 from transformers import PreTrainedModel, PreTrainedTokenizerBase, GenerationConfig
 # Import necessary modules and constants for PDF generation in main
-from PIL import Image as PILImage 
+from PIL import Image as PILImage
 from utils import MAX_COMPLETIONS_PER_PAGE_PDF
 from reportlab.platypus import PageBreak # Import PageBreak
 
@@ -39,7 +38,7 @@ def eval_on_test_set(
     Returns tuple: (aggregated_avg_scores_dict, main_error_metric_value)
     """
     print("Running evaluation on test set...")
-    
+
     # Initialize accumulators for overall, normal, and hard subsets
     num_examples = 0
     num_chains_processed_overall = 0
@@ -48,18 +47,18 @@ def eval_on_test_set(
     aggregated_metrics_sum_overall = defaultdict(float)
     aggregated_metrics_sum_normal = defaultdict(float)
     aggregated_metrics_sum_hard = defaultdict(float)
-    
+
     # Ensure temp_vis directory exists for saving images with clicks for PDF
     eval_temp_vis_dir = os.path.join(args.output_dir, 'eval_logs', 'temp_vis')
     os.makedirs(eval_temp_vis_dir, exist_ok=True)
-    
+
     _, pdf_dir, json_dir = utils._setup_eval_directories(args.output_dir)
     # Sanitize experiment name for PDF filename (if present in args.output_dir)
     exp_name_sanitized = os.path.basename(os.path.normpath(args.output_dir)).replace(" ", "_")
     pdf_filename = f'eval_results_round_{round_num}_exp_{exp_name_sanitized}.pdf'
     pdf_path = os.path.join(pdf_dir, pdf_filename)
     doc, styles, story = utils._setup_pdf(pdf_path)
-    
+
     test_loader.reset()
 
     # Determine the correct error metric key based on dataset type
@@ -94,31 +93,31 @@ def eval_on_test_set(
         # Ensure generate_completions uses the correct prompt (dynamic for GUI)
         _, _, _, _, completions_text, _ = generate_completions(
             model, tokenizer, img_path, prompt_to_use, device, args, eval=True)
-        
+
         # Add example header to PDF (prompt_to_use will have target name for GUI)
-        utils._add_example_header_to_pdf(story, styles, img_path, prompt_to_use, 
+        utils._add_example_header_to_pdf(story, styles, img_path, prompt_to_use,
                                          answer_for_eval_and_pdf, num_examples, args.dataset_type,
                                          is_hard=is_hard_example)
-        
+
         for completion_idx, completion_text in enumerate(completions_text):
             # Path for saving image with plotted click (unique per completion)
             vis_image_path_for_pdf = os.path.join(eval_temp_vis_dir, f"round{round_num}_ex{batch_idx}_comp{completion_idx}.png")
-            
+
             # Process single completion also handles plotting for GUI task
             metrics_single = utils._process_single_completion_for_eval(
-                completion_text=completion_text, 
-                eval_class=eval_class, 
+                completion_text=completion_text,
+                eval_class=eval_class,
                 answer_data=answer_for_eval_and_pdf, # This is target_details for GUI
-                device=device, 
-                story=story, 
-                styles=styles, 
+                device=device,
+                story=story,
+                styles=styles,
                 completion_idx=completion_idx,
                 dataset_type=args.dataset_type,
                 original_image_path=img_path, # Pass original image path for GUI task
                 vis_image_path_for_pdf=vis_image_path_for_pdf, # Path to save visualization
                 gui_plotter=GUIGenerator.plot_predictions if args.dataset_type == 'gui' else None
             )
-            
+
             num_chains_processed_overall += 1
             if metrics_single and isinstance(metrics_single, dict):
                 # Aggregate overall metrics
@@ -127,7 +126,7 @@ def eval_on_test_set(
                         aggregated_metrics_sum_overall[metric_name] += value
                     elif torch.is_tensor(value) and value.numel() == 1:
                         aggregated_metrics_sum_overall[metric_name] += value.item()
-                
+
                 # Aggregate normal/hard metrics
                 if is_hard_example:
                     num_chains_processed_hard += 1
@@ -145,21 +144,21 @@ def eval_on_test_set(
                             aggregated_metrics_sum_normal[metric_name] += value.item()
         num_examples += 1
 
-    # --- Calculate final averages --- 
+    # --- Calculate final averages ---
     avg_scores_overall = {}
     avg_scores_normal = {}
     avg_scores_hard = {}
 
     if num_chains_processed_overall > 0:
         for metric_name, total_value in aggregated_metrics_sum_overall.items():
-            avg_scores_overall[f"avg_overall_{metric_name}"] = total_value / num_chains_processed_overall 
+            avg_scores_overall[f"avg_overall_{metric_name}"] = total_value / num_chains_processed_overall
     if num_chains_processed_normal > 0:
         for metric_name, total_value in aggregated_metrics_sum_normal.items():
             avg_scores_normal[f"avg_normal_{metric_name}"] = total_value / num_chains_processed_normal
     if num_chains_processed_hard > 0:
          for metric_name, total_value in aggregated_metrics_sum_hard.items():
             avg_scores_hard[f"avg_hard_{metric_name}"] = total_value / num_chains_processed_hard
-    
+
     # Combine all averages into one dictionary for logging
     all_avg_scores = {**avg_scores_overall, **avg_scores_normal, **avg_scores_hard}
 
@@ -175,16 +174,16 @@ def eval_on_test_set(
 
 def generate_completions(
     model: PreTrainedModel,
-    tokenizer: PreTrainedTokenizerBase, 
+    tokenizer: PreTrainedTokenizerBase,
     image_path: str,
     prompt: str,
     device: str,
-    args: argparse.Namespace, 
+    args: argparse.Namespace,
     eval: bool = False
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, list[str], str]:
     """
     Generate multiple completion sequences for a given prompt using a language model.
-    
+
     Args:
         model: The language model to use for generation
         tokenizer: Tokenizer corresponding to the model
@@ -192,7 +191,7 @@ def generate_completions(
         prompt: The input prompt to generate completions for
         device: Device to run generation on ('cpu' or 'cuda')
         args: Namespace containing generation parameters
-        
+
     Returns:
         prompt_completion_ids: Tensor containing the full sequence of prompt + completion token IDs
         prompt_ids: Tensor containing just the prompt token IDs
@@ -217,7 +216,7 @@ def generate_completions(
         },
     ]
 
-    text = tokenizer.apply_chat_template(conversation, add_generation_prompt=True, tokenize=False)  
+    text = tokenizer.apply_chat_template(conversation, add_generation_prompt=True, tokenize=False)
     image_inputs, video_inputs = process_vision_info(conversation)
 
     # Ensure left padding for tokenizer/processor before tokenizing
@@ -240,7 +239,7 @@ def generate_completions(
             batched_prompt_inputs[key] = value.repeat(num_chains, *([1] * (value.dim() - 1)))
         else:
             # Handle non-tensor items if necessary, otherwise just copy
-            batched_prompt_inputs[key] = value 
+            batched_prompt_inputs[key] = value
 
     # Original prompt_ids/mask are needed for splitting later
     original_prompt_ids = prompt_inputs["input_ids"]
@@ -260,14 +259,14 @@ def generate_completions(
 
     )
 
-    
+
     # Extract completion ids
     # Use the original prompt length before repeating
-    prompt_length = original_prompt_ids.size(1) 
+    prompt_length = original_prompt_ids.size(1)
     prompt_ids = prompt_completion_ids[:, :prompt_length] # These are the batched prompt IDs
     completion_ids = prompt_completion_ids[:, prompt_length:]
 
-    # Do masking 
+    # Do masking
     is_eos = completion_ids == tokenizer.tokenizer.eos_token_id
     eos_idx = torch.full((is_eos.size(0),), is_eos.size(1), dtype=torch.long, device=device)
     eos_idx[is_eos.any(dim=1)] = is_eos.int().argmax(dim=1)[is_eos.any(dim=1)]
@@ -281,7 +280,7 @@ def generate_completions(
     # Decode completions
     completions_text = tokenizer.batch_decode(completion_ids, skip_special_tokens=True, clean_up_tokenization_spaces=False)
     return prompt_completion_ids, prompt_ids, completion_ids, attention_mask, completions_text, prompt
-    
+
 def score_completions(
     completions_text: list[str],
     prompt_data: Any, # For GUI, this will be target_details_dict including dynamic_prompt
@@ -326,18 +325,18 @@ def score_completions(
         # prompt_data is the static prompt string
         # answer_data is the single answer string (time or R value)
         log_data['prompt'] = {
-            'text': prompt_data, 
-            'answer': answer_data, 
+            'text': prompt_data,
+            'answer': answer_data,
             'image_path': image_path
         }
         eval_answers_list = [answer_data] * len(completions_text)
 
     # Format inputs as expected by evaluator
     mock_completions_for_eval = [[{'content': completion}] for completion in completions_text]
-    
+
     rewards_per_func, metrics = eval_class.compute_rewards(
         prompts=None, # Eval class might not need full prompt structure, depends on its impl.
-        completions=mock_completions_for_eval, 
+        completions=mock_completions_for_eval,
         answers=eval_answers_list, # Pass list of answers (target_details for GUI, string for others)
         device=device
     )
@@ -370,7 +369,7 @@ def score_completions(
 
 def compute_loss(
     model: PreTrainedModel,
-    base_model: PreTrainedModel, 
+    base_model: PreTrainedModel,
     prompt_completion_ids: torch.Tensor,
     prompt_ids: torch.Tensor,
     completion_ids: torch.Tensor,
@@ -379,12 +378,12 @@ def compute_loss(
     advantages: torch.Tensor,
     args: argparse.Namespace,
     img_path: str,
-    tokenizer: PreTrainedTokenizerBase, 
+    tokenizer: PreTrainedTokenizerBase,
     prompt: str
 ) -> tuple[torch.Tensor, dict[str, float]]:
     """
     Compute the GRPO loss between current and base model.
-    
+
     Args:
         model: The current model being trained
         base_model: The reference model to compare against
@@ -395,7 +394,7 @@ def compute_loss(
         completion_mask: Mask indicating which tokens are from the completion
         advantages: Advantage values for each sequence
         args: Training arguments
-        
+
     Returns:
         loss: The computed GRPO loss
         metrics: Dictionary containing additional metrics like KL divergence
@@ -435,17 +434,17 @@ def grpo_loss(
         tokenizer: PreTrainedTokenizerBase,
         # For GUI, prompt_info_or_static_prompt will be target_details_dict
         # For Clock/Corr, it will be the static prompt string from the loader
-        prompt_info_or_static_prompt: Any, 
+        prompt_info_or_static_prompt: Any,
         img_path: str,
         # For GUI, answer_details_or_string will be target_details_dict
         # For Clock/Corr, it will be the answer string
-        answer_details_or_string: Any, 
+        answer_details_or_string: Any,
         eval_class: evaluator.RewardEvaluator,
         device: str,
         round_num: int,
-        training_log_dir: str, 
+        training_log_dir: str,
         args: argparse.Namespace
-) -> tuple[torch.Tensor, dict[str, float], list[str], torch.Tensor, torch.Tensor]: 
+) -> tuple[torch.Tensor, dict[str, float], list[str], torch.Tensor, torch.Tensor]:
     """
     Compute GRPO loss for a batch.
     Returns: loss, metrics, completions_text, rewards_per_func, advantages
@@ -469,19 +468,19 @@ def grpo_loss(
     )
 
     rewards, advantages, rewards_per_func, metrics, log_data = score_completions(
-        completions_text, 
+        completions_text,
         prompt_info_or_static_prompt, # Pass the original prompt info (dict for GUI, str for others)
-        img_path, 
+        img_path,
         current_answer_data, # Pass target_details for GUI, answer_str for others
-        eval_class, 
-        device, 
+        eval_class,
+        device,
         args
     )
 
     log_file_name = f'round_{round_num}_batch_generations.txt' # More descriptive name
     log_file = os.path.join(training_log_dir, log_file_name)
     utils.write_generation_log(log_data, log_file)
-    
+
     image_log_dir = os.path.join(training_log_dir, 'images')
     os.makedirs(image_log_dir, exist_ok=True)
     image_log_path = os.path.join(image_log_dir, f'image_round_{round_num}.png') # One image per round for now
@@ -495,14 +494,14 @@ def grpo_loss(
         attention_mask, completion_mask, advantages, args, img_path, tokenizer, current_prompt_text
     )
     metrics.update(loss_metrics)
-    
+
     # Return the required values
     return loss, metrics, completions_text, rewards_per_func, advantages
 
 
 def parse_args():
     parser = argparse.ArgumentParser(description="GRPO training arguments")
-    
+
     # Model configuration
     parser.add_argument("--model_name_or_path", type=str, default="Qwen/Qwen2.5-VL-7B-Instruct", help="Model identifier for main and base model")
     parser.add_argument("--dataset_type", type=str, default="clock", choices=["clock", "correlation", "gui", "captcha"], help="Type of dataset to use ('clock', 'correlation', 'gui', or 'captcha')")
@@ -517,7 +516,7 @@ def parse_args():
     # Optimization hyperparameters
     parser.add_argument("--learning_rate", type=float, default=5e-6, help="Learning rate")
     parser.add_argument("--adam_beta1", type=float, default=0.9, help="Adam beta1")
-    parser.add_argument("--adam_beta2", type=float, default=0.99, help="Adam beta2") 
+    parser.add_argument("--adam_beta2", type=float, default=0.99, help="Adam beta2")
     parser.add_argument("--weight_decay", type=float, default=0.1, help="Weight decay")
     parser.add_argument("--max_grad_norm", type=float, default=0.1, help="Max gradient norm for clipping")
     parser.add_argument("--gradient_accumulation_steps", type=int, default=4, help="Number of gradient accumulation steps")
@@ -543,12 +542,12 @@ def parse_args():
     return args
 
 if __name__ == "__main__":
-    args = parse_args() 
+    args = parse_args()
 
     utils.seed_everything(args.seed)
     device = "cuda" if torch.cuda.is_available() else "cpu"
     torch.backends.cuda.matmul.allow_bf16_reduced_precision_reduction = True
-    torch.set_float32_matmul_precision('high') 
+    torch.set_float32_matmul_precision('high')
 
     model, tokenizer = llms.get_llm_tokenizer(args.model_name_or_path, device)
     base_model, _ = llms.get_llm_tokenizer(args.model_name_or_path, device)
@@ -567,7 +566,7 @@ if __name__ == "__main__":
         args_dict = vars(args)
         with open(args_path, 'w') as f:
             json.dump(args_dict, f, indent=4)
-            
+
     eval_log_dir, eval_pdf_dir, eval_json_dir = utils._setup_eval_directories(args.output_dir)
     train_log_dir = utils._setup_training_log_directory(args.output_dir)
     # Setup dirs for training PDF logs
@@ -590,7 +589,7 @@ if __name__ == "__main__":
             return (step / warmup_steps)
         return 1.0
     scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer,lr_lambda=get_lr)
-    
+
     start_round = 0
     if args.resume_from_checkpoint:
         if os.path.isfile(args.resume_from_checkpoint):
@@ -604,7 +603,7 @@ if __name__ == "__main__":
             start_round = checkpoint['round_num'] + 1
             print(f"Loaded checkpoint. Resuming from round {start_round}")
             temp_scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lambda step: get_lr(step + start_round))
-            scheduler = temp_scheduler 
+            scheduler = temp_scheduler
         else:
             print(f"Warning: Checkpoint file not found at {args.resume_from_checkpoint}. Starting training from scratch.")
 
@@ -624,12 +623,12 @@ if __name__ == "__main__":
     pdf_log_round_data = {}
 
     for round_num in tqdm(range(start_round, args.num_train_iters), initial=start_round, total=args.num_train_iters, desc="Training Progress"):
-        
+
         # --- Evaluation Step --- (Run periodically)
         if round_num % args.eval_iterations == 0:
             eval_avg_scores, eval_main_metric_val = eval_on_test_set(
                 model=model,
-                tokenizer=tokenizer, 
+                tokenizer=tokenizer,
                 test_loader=test_loader,
                 eval_class=eval_class,
                 device=device,
@@ -655,16 +654,16 @@ if __name__ == "__main__":
         except StopIteration:
             train_loader.reset()  # Reset the loader when we reach the end
             batch = next(train_loader)  # Get the first batch after reset
-            
-        img_path, data_for_grpo = batch 
+
+        img_path, data_for_grpo = batch
 
         # Perform GRPO step and get data needed for potential PDF logging
         loss, train_metrics, completions_text, rewards_per_func, advantages = grpo_loss(
-            model, base_model, tokenizer, 
-            data_for_grpo, img_path, data_for_grpo, 
+            model, base_model, tokenizer,
+            data_for_grpo, img_path, data_for_grpo,
             eval_class, device, round_num, train_log_dir, args
         )
-        
+
         # Store data for potential PDF logging this round
         # This replaces previous round's data, so only the latest is kept
         pdf_log_round_data = {
@@ -677,14 +676,14 @@ if __name__ == "__main__":
         }
 
         # Gradient accumulation and optimizer step
-        loss = loss / args.gradient_accumulation_steps 
+        loss = loss / args.gradient_accumulation_steps
         loss.backward()
         accumulated_loss_val += loss.item()
-        scheduler.step() 
+        scheduler.step()
         if (round_num + 1) % args.gradient_accumulation_steps == 0:
             torch.nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
             optimizer.step()
-            optimizer.zero_grad()    
+            optimizer.zero_grad()
 
         # --- Checkpoint Saving & Training PDF Logging --- (Run periodically)
         if (round_num + 1) % args.save_steps == 0:
@@ -696,11 +695,11 @@ if __name__ == "__main__":
                 'base_model_state_dict': base_model.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict(),
                 'scheduler_state_dict': scheduler.state_dict(),
-                'args': args 
+                'args': args
             }, checkpoint_path)
             print(f"Checkpoint saved to {checkpoint_path}")
 
-        # --- Generate Training PDF Log for this round --- 
+        # --- Generate Training PDF Log for this round ---
         print(f"Generating training PDF log for round {round_num}...")
         # Use the data stored from the *last* training step of this logging interval
         log_data = pdf_log_round_data
@@ -722,8 +721,8 @@ if __name__ == "__main__":
 
             # Add PDF Header (Image, Prompt, Target Info)
             utils._add_example_header_to_pdf(
-                story_train, styles_train, log_data['img_path'], 
-                prompt_text_for_pdf, answer_data_for_pdf, 
+                story_train, styles_train, log_data['img_path'],
+                prompt_text_for_pdf, answer_data_for_pdf,
                 round_num, args.dataset_type
             )
 
@@ -736,10 +735,10 @@ if __name__ == "__main__":
                 reward_breakdown = eval_class.get_reward_breakdown(reward_scores) # Get dict
 
                 vis_train_img_path = os.path.join(
-                    train_temp_vis_dir, 
+                    train_temp_vis_dir,
                     f"train_round{round_num}_comp{compl_idx}.png"
                 )
-                
+
                 img_path_for_pdf_entry = None
                 # Plot click for GUI task
                 if args.dataset_type == 'gui':
@@ -749,8 +748,8 @@ if __name__ == "__main__":
                             if parsed_click:
                                 pil_img = PILImage.open(log_data['img_path'])
                                 plot_data = [{
-                                    "name": "VLM Click", 
-                                    "center_x": parsed_click[0], 
+                                    "name": "VLM Click",
+                                    "center_x": parsed_click[0],
                                     "center_y": parsed_click[1],
                                     "is_truth": False
                                 }]
@@ -769,7 +768,7 @@ if __name__ == "__main__":
                     from evaluator import CaptchaEvaluator
                     temp_captcha_evaluator = CaptchaEvaluator()
                     predicted_clicks = temp_captcha_evaluator._extract_click_calls(completion_text)
-                    
+
                     # Plot the visualization with the clicks
                     utils.plot_captcha_evaluation(
                         base_image_path=log_data['img_path'],
@@ -796,7 +795,7 @@ if __name__ == "__main__":
                 # Add PageBreak if needed (e.g., after every 2 completions)
                 if (compl_idx + 1) % MAX_COMPLETIONS_PER_PAGE_PDF == 0:
                         story_train.append(PageBreak())
-            
+
             # Build the PDF
             doc_train.build(story_train)
             print(f"Training PDF log saved to {pdf_train_path}")
