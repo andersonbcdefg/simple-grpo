@@ -1,0 +1,18 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    # Ruff version.
+    rev: v0.11.10
+    hooks:
+      # Run the linter.
+      - id: ruff-check
+        args: [--fix]
+      # Run the formatter.
+      - id: ruff-format
+  - repo: local
+    hooks:
+      - id: pyright
+        name: pyright (type checking)
+        entry: npx pyright # or just 'pyright' if globally available
+        language: system
+        types: [python]
+        pass_filenames: false # pyright expects to scan the project, not individual files

@@ -7,22 +7,26 @@ import random
 import numpy as np
 import torch.nn.functional as F
 from collections import defaultdict
-from typing import Any, Dict, Optional, Callable
+from typing import Any, Optional, Callable, cast
 from PIL import Image as PILImage, ImageDraw # To avoid conflict with ReportLabImage, explicitly import ImageDraw
-from transformers import PreTrainedModel, PreTrainedTokenizerBase
+
+from transformers.modeling_utils import PreTrainedModel
+from transformers.tokenization_utils_base import PreTrainedTokenizerBase
 
 from qwen_vl_utils import process_vision_info
+from transformers.tokenization_utils_base import BatchEncoding
 import evaluator
-from gui_generator import GUIGenerator # For plot_predictions type hint if GUI specific logic
-from utils.reports import _add_completion_to_pdf
+from simple_grpo.datasets.gui_generator import GUIGenerator # For plot_predictions type hint if GUI specific logic
+from simple_grpo.typedefs import MessageListBatch
+from simple_grpo.utils.reports import _add_completion_to_pdf
 
-from simpler_grpo import evaluator
-from simpler_grpo.datasets.gui_generator import (
+from simple_grpo import evaluator
+from simple_grpo.datasets.gui_generator import (
     GUIGenerator,  # For plot_predictions type hint if GUI specific logic
 )
 
 # Import constants from captcha_generator if needed for plotting logic
-from simpler_grpo.datasets.captcha_generator import (
+from simple_grpo.datasets.captcha_generator import (
     FINAL_DIM as CAPTCHA_FINAL_DIM,
     GRID_SIZE as CAPTCHA_GRID_SIZE,
     BANNER_ABS_HEIGHT as CAPTCHA_BANNER_ABS_HEIGHT,
@@ -38,6 +42,12 @@ MAX_COMPLETION_LENGTH_PDF = 500
 ####################
 ## MISC FUNCTIONS ##
 ####################
+
+def set_dtype(encoding: BatchEncoding, dtype: torch.dtype | str):
+    for k, v in encoding.items():
+        if isinstance(v, torch.Tensor):
+            encoding[k] = v.to(dtype)
+    return encoding
 
 def clean_spaces_preserve_newlines(text):
     # Replace multiple spaces with a single space, but preserve newlines
@@ -68,12 +78,12 @@ def seed_everything(seed: int) -> None:
 
 # Add set_seed (alias for seed_everything)
 set_seed = seed_everything
-def write_generation_log(log_data: Dict[str, Any], log_file: str) -> None:
+def write_generation_log(log_data: dict[str, Any], log_file: str) -> None:
     """
     Write generation log data to a text file.
 
     Args:
-        log_data: Dictionary containing prompt and generation data
+        log_data: dictionary containing prompt and generation data
         log_file: Path to output log file
     """
     with open(log_file, 'a') as f: # Append mode
@@ -159,7 +169,7 @@ def get_per_token_logps_vl(model, input_ids, attention_mask, image_path, tokeniz
     ]
 
     text = tokenizer.apply_chat_template(conversation, add_generation_prompt=True, tokenize=False, padding_side="left")
-    image_inputs, video_inputs = process_vision_info(conversation)
+    image_inputs, video_inputs = process_vision_info(conversation) # type: ignore -
 
     prompt_inputs = tokenizer(
         text=[text],
@@ -197,16 +207,6 @@ def get_per_token_logps_vl(model, input_ids, attention_mask, image_path, tokeniz
 ########################
 
 # Constants for PDF generation
-PDF_IMAGE_WIDTH = 400  # Max width for images in points (adjust as needed)
-PDF_MAX_IMAGE_HEIGHT = 550 # Max height for images in points (adjust as needed)
-
-def _extract_tagged_content(text: str, tag: str) -> Optional[str]:
-    """Extracts content within a specific XML-like tag."""
-    match = re.search(rf'<{tag}>(.*?)</{tag}>', text, re.DOTALL | re.IGNORECASE)
-    if match:
-        return match.group(1).strip()
-    return None
-
 def _setup_training_log_directory(output_dir: str) -> str:
     """Creates and returns the path for the training log directory."""
     training_log_dir = os.path.join(output_dir, "training_logs")
@@ -234,7 +234,7 @@ def _process_single_completion_for_eval(
     dataset_type: str = 'gui',
     original_image_path: Optional[str] = None,
     vis_image_path_for_pdf: Optional[str] = None,
-    gui_plotter: Optional[callable] = None,
+    gui_plotter: Optional[Callable] = None,
     verbose: bool = False # Added verbose for plot_captcha_evaluation
 ) -> Optional[dict[str, float]]:
     """
@@ -255,7 +255,7 @@ def _process_single_completion_for_eval(
     # metrics will be a dict like {'metric_name': value_tensor}
     rewards_per_func_single, metrics_single_dict_tensors = eval_class.compute_rewards(
         prompts=None, # Not always needed by evaluator if context is in answer_data
-        completions=current_completions_list,
+        completions=cast(MessageListBatch, current_completions_list),
         answers=current_answers_list,
         device=device # device might be used by evaluator internally
     )
@@ -322,7 +322,7 @@ def _process_single_completion_for_eval(
             img_path_for_pdf_entry = None
 
             # Create a temporary CaptchaEvaluator to extract clicks
-            from simpler_grpo.evaluator import CaptchaEvaluator
+            from simple_grpo.evaluator import CaptchaEvaluator
             temp_captcha_evaluator = CaptchaEvaluator()
             predicted_clicks = temp_captcha_evaluator._extract_click_calls(completion_text)
 
@@ -445,7 +445,6 @@ def _calculate_and_log_final_metrics(all_avg_scores: dict, json_dir: str, round_
         if not any(k.startswith("avg_hard_") for k in all_avg_scores):
             print("    (No hard examples in this evaluation)")
         print("-" * 40)
-
 
 def plot_captcha_evaluation(
     base_image_path: str,

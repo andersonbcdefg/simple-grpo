@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import os
+import re
+import json
 import html
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Optional, cast
 
+import torch
 from PIL import Image as PILImage
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_JUSTIFY
@@ -19,10 +22,29 @@ from reportlab.platypus import (
     Table,
     TableStyle,
 )
+from simple_grpo import evaluator
+from simple_grpo.typedefs import MessageListBatch
+from simple_grpo.utils import plot_captcha_evaluation
 
 MAX_ANSWER_LENGTH_PDF = 200
+from simple_grpo.datasets.captcha_generator import (
+    FINAL_DIM as CAPTCHA_FINAL_DIM,
+    GRID_SIZE as CAPTCHA_GRID_SIZE,
+    BANNER_ABS_HEIGHT as CAPTCHA_BANNER_ABS_HEIGHT,
+    PADDING_SIZE as CAPTCHA_PADDING_SIZE,
+    CELL_DIM as CAPTCHA_CELL_DIM,
+)
+PDF_IMAGE_WIDTH = 400  # Max width for images in points (adjust as needed)
+PDF_MAX_IMAGE_HEIGHT = 550 # Max height for images in points (adjust as needed)
 
-def _setup_pdf(pdf_path: str) -> tuple[SimpleDocTemplate, dict, list]:
+def _extract_tagged_content(text: str, tag: str) -> Optional[str]:
+    """Extracts content within a specific XML-like tag."""
+    match = re.search(rf'<{tag}>(.*?)</{tag}>', text, re.DOTALL | re.IGNORECASE)
+    if match:
+        return match.group(1).strip()
+    return None
+
+def _setup_pdf(pdf_path: str) -> tuple[SimpleDocTemplate, Any, list]:
     """Initializes the PDF document, styles, and story list."""
     doc = SimpleDocTemplate(pdf_path, pagesize=letter)
     styles = getSampleStyleSheet()
@@ -115,10 +137,10 @@ def _add_example_header_to_pdf(story: list, styles: dict, image_path: str,
     story.append(Spacer(1, 0.2*inch))
 
 def _add_completion_to_pdf(story: list, styles: dict, completion_text: str,
-                           metrics: Optional[Dict[str, Any]], completion_idx: int,
+                           metrics: Optional[dict[str, Any]], completion_idx: int,
                            dataset_type: str,
                            image_path_for_completion_pdf: Optional[str] = None,
-                           captcha_data: Optional[Dict[str, Any]] = None):
+                           captcha_data: Optional[dict[str, Any]] = None):
     story.append(Paragraph(f"Completion {completion_idx + 1}", styles['h3']))
 
     # Display image for this completion (e.g., with click for GUI)
@@ -231,7 +253,7 @@ def _process_single_completion_for_eval(
     dataset_type: str = 'gui',
     original_image_path: Optional[str] = None,
     vis_image_path_for_pdf: Optional[str] = None,
-    gui_plotter: Optional[callable] = None,
+    gui_plotter: Callable | None = None,
     verbose: bool = False # Added verbose for plot_captcha_evaluation
 ) -> Optional[dict[str, float]]:
     """
@@ -252,7 +274,7 @@ def _process_single_completion_for_eval(
     # metrics will be a dict like {'metric_name': value_tensor}
     rewards_per_func_single, metrics_single_dict_tensors = eval_class.compute_rewards(
         prompts=None, # Not always needed by evaluator if context is in answer_data
-        completions=current_completions_list,
+        completions=cast(MessageListBatch, current_completions_list),
         answers=current_answers_list,
         device=device # device might be used by evaluator internally
     )
@@ -445,7 +467,7 @@ def _calculate_and_log_final_metrics(all_avg_scores: dict, json_dir: str, round_
 
 def _add_training_completion_to_pdf(story: list, styles: dict,
                                     completion_text: str,
-                                    reward_breakdown: Dict[str, float],
+                                    reward_breakdown: dict[str, float],
                                     advantage: float,
                                     completion_idx: int,
                                     dataset_type: str, # Added dataset_type for consistency
@@ -511,4 +533,3 @@ __all__ = [
     "_add_training_completion_to_pdf",
     "_truncate_text",
 ]
-
