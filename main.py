@@ -14,14 +14,14 @@ from qwen_vl_utils import process_vision_info
 from transformers import PreTrainedModel, PreTrainedTokenizerBase, GenerationConfig
 # Import necessary modules and constants for PDF generation in main
 from PIL import Image as PILImage
-from utils import MAX_COMPLETIONS_PER_PAGE_PDF
+from simpler_grpo.utils import MAX_COMPLETIONS_PER_PAGE_PDF
 from reportlab.platypus import PageBreak # Import PageBreak
 
-import llms
-import utils
-import evaluator
-import rldatasets
-from gui_generator import GUIGenerator # For PDF plotting
+from simpler_grpo import llms
+from simpler_grpo import utils
+from simpler_grpo import evaluator
+from simpler_grpo.datasets import rldatasets
+from simpler_grpo.datasets.gui_generator import GUIGenerator  # For PDF plotting
 
 def eval_on_test_set(
     model: PreTrainedModel,
@@ -765,7 +765,7 @@ if __name__ == "__main__":
                         img_path_for_pdf_entry = log_data['img_path']
                 elif args.dataset_type == 'captcha':
                     # Create a temporary CaptchaEvaluator to extract clicks
-                    from evaluator import CaptchaEvaluator
+                    from simpler_grpo.evaluator import CaptchaEvaluator
                     temp_captcha_evaluator = CaptchaEvaluator()
                     predicted_clicks = temp_captcha_evaluator._extract_click_calls(completion_text)
 

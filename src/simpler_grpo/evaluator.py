@@ -10,8 +10,8 @@ import numpy as np # Added numpy
 from abc import ABC, abstractmethod
 from typing import List, Dict, Tuple, Any, Optional
 
-from clock_generator import TimeObj # Import TimeObj
-from gui_generator import IMAGE_WIDTH, IMAGE_HEIGHT # For max distance calculation
+from simpler_grpo.datasets.clock_generator import TimeObj  # Import TimeObj
+from simpler_grpo.datasets.gui_generator import IMAGE_WIDTH, IMAGE_HEIGHT  # For max distance calculation
 
 # Maximum possible time difference on a 12-hour clock in seconds (6 hours)
 MAX_DIFF_SECONDS = 6 * 3600 
@@ -664,7 +664,14 @@ class CaptchaEvaluator(RewardEvaluator):
         num_actual_targets = len(true_target_indices)
         predicted_clicks_on_square_indices = []
 
-        from captcha_generator import SQUARE_CROP_DIM, GRID_SIZE, CELL_DIM, BANNER_ABS_HEIGHT, FINAL_DIM, PADDING_SIZE
+        from simpler_grpo.datasets.captcha_generator import (
+            SQUARE_CROP_DIM,
+            GRID_SIZE,
+            CELL_DIM,
+            BANNER_ABS_HEIGHT,
+            FINAL_DIM,
+            PADDING_SIZE,
+        )
         scale_x = FINAL_DIM / (SQUARE_CROP_DIM + 2 * PADDING_SIZE)
         scale_y = FINAL_DIM / (BANNER_ABS_HEIGHT + SQUARE_CROP_DIM + 2 * PADDING_SIZE)
         grid_origin_x_on_padded = PADDING_SIZE

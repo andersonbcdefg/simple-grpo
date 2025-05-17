@@ -19,11 +19,19 @@ from transformers import PreTrainedModel, PreTrainedTokenizerBase
 
 from qwen_vl_utils import process_vision_info
 
-import evaluator
-from gui_generator import GUIGenerator # For plot_predictions type hint if GUI specific logic
+from simpler_grpo import evaluator
+from simpler_grpo.datasets.gui_generator import (
+    GUIGenerator,  # For plot_predictions type hint if GUI specific logic
+)
 
 # Import constants from captcha_generator if needed for plotting logic
-from captcha_generator import FINAL_DIM as CAPTCHA_FINAL_DIM, GRID_SIZE as CAPTCHA_GRID_SIZE, BANNER_ABS_HEIGHT as CAPTCHA_BANNER_ABS_HEIGHT, PADDING_SIZE as CAPTCHA_PADDING_SIZE, CELL_DIM as CAPTCHA_CELL_DIM
+from simpler_grpo.datasets.captcha_generator import (
+    FINAL_DIM as CAPTCHA_FINAL_DIM,
+    GRID_SIZE as CAPTCHA_GRID_SIZE,
+    BANNER_ABS_HEIGHT as CAPTCHA_BANNER_ABS_HEIGHT,
+    PADDING_SIZE as CAPTCHA_PADDING_SIZE,
+    CELL_DIM as CAPTCHA_CELL_DIM,
+)
 
 MAX_COMPLETIONS_PER_PAGE_PDF = 2
 MAX_PROMPT_LENGTH_PDF = 300 # Add the missing constant definition
@@ -514,7 +522,7 @@ def _process_single_completion_for_eval(
             img_path_for_pdf_entry = None
 
             # Create a temporary CaptchaEvaluator to extract clicks
-            from evaluator import CaptchaEvaluator
+            from simpler_grpo.evaluator import CaptchaEvaluator
             temp_captcha_evaluator = CaptchaEvaluator()
             predicted_clicks = temp_captcha_evaluator._extract_click_calls(completion_text)
 
