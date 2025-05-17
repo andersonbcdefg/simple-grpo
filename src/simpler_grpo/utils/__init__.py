@@ -7,13 +7,7 @@ import random
 import numpy as np
 import torch.nn.functional as F
 from collections import defaultdict
-from reportlab.lib.units import inch
 from typing import Any, Dict, Optional, Callable
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image as PlatypusImage, PageBreak, Table, TableStyle
-from reportlab.lib.pagesizes import letter
-from reportlab.lib.enums import TA_JUSTIFY
-from reportlab.lib import colors
 from PIL import Image as PILImage, ImageDraw # To avoid conflict with ReportLabImage, explicitly import ImageDraw
 from transformers import PreTrainedModel, PreTrainedTokenizerBase
 
@@ -21,6 +15,7 @@ from qwen_vl_utils import process_vision_info
 
 import evaluator
 from gui_generator import GUIGenerator # For plot_predictions type hint if GUI specific logic
+from utils.reports import _add_completion_to_pdf
 
 # Import constants from captcha_generator if needed for plotting logic
 from captcha_generator import FINAL_DIM as CAPTCHA_FINAL_DIM, GRID_SIZE as CAPTCHA_GRID_SIZE, BANNER_ABS_HEIGHT as CAPTCHA_BANNER_ABS_HEIGHT, PADDING_SIZE as CAPTCHA_PADDING_SIZE, CELL_DIM as CAPTCHA_CELL_DIM
@@ -217,203 +212,6 @@ def _setup_eval_directories(base_output_dir: str) -> tuple[str, str, str]:
     os.makedirs(json_dir, exist_ok=True)
     return logs_dir, pdf_dir, json_dir
 
-def _setup_pdf(pdf_path: str) -> tuple[SimpleDocTemplate, dict, list]:
-    """Initializes the PDF document, styles, and story list."""
-    doc = SimpleDocTemplate(pdf_path, pagesize=letter)
-    styles = getSampleStyleSheet()
-    story = []
-    styles['Code'].fontSize = 10
-    styles.add(ParagraphStyle(name='Bold', parent=styles['Normal'], fontName='Helvetica-Bold'))
-    # Add a justified style for longer text blocks
-    styles.add(ParagraphStyle(name='Justified', parent=styles['Normal'], alignment=TA_JUSTIFY))
-    return doc, styles, story
-
-def _truncate_text(text: str, max_length: int) -> str:
-    if len(text) > max_length:
-        return text[:max_length-3] + "..."
-    return text
-
-def _add_example_header_to_pdf(story: list, styles: dict, image_path: str,
-                               prompt_text: str, answer_data: Any, example_num: int, dataset_type: str,
-                               is_hard: bool = False):
-    title = f"Example {example_num + 1}"
-    if is_hard:
-        title += " (Hard Subset)"
-    story.append(Paragraph(title, styles['h2']))
-
-    # Display image if path is valid
-    if os.path.exists(image_path):
-        try:
-            img = PILImage.open(image_path)
-            img_width, img_height = img.size
-            aspect = img_height / float(img_width)
-            display_width = 2.5 * inch # Max width for the image in PDF
-            display_height = display_width * aspect
-            # Cap height to prevent overly tall images
-            if display_height > 3.5 * inch:
-                display_height = 3.5 * inch
-                display_width = display_height / aspect
-
-            # For CAPTCHA, add a header before the input image
-            if dataset_type == 'captcha':
-                story.append(Paragraph("<b>Input CAPTCHA Image:</b>", styles['BodyText']))
-
-            story.append(PlatypusImage(image_path, width=display_width, height=display_height))
-            story.append(Spacer(1, 0.1*inch))
-
-            # For CAPTCHA, also display the solution image if available
-            if dataset_type == 'captcha' and answer_data and 'solution_image_path' in answer_data:
-                solution_image_path = answer_data['solution_image_path']
-                if os.path.exists(solution_image_path):
-                    try:
-                        story.append(Paragraph("<b>Ground Truth Solution Image:</b>", styles['BodyText']))
-                        sol_img = PILImage.open(solution_image_path)
-                        sol_img_width, sol_img_height = sol_img.size
-                        sol_aspect = sol_img_height / float(sol_img_width)
-                        sol_display_width = 2.5 * inch
-                        sol_display_height = sol_display_width * sol_aspect
-                        if sol_display_height > 3.5 * inch:
-                            sol_display_height = 3.5 * inch
-                            sol_display_width = sol_display_height / sol_aspect
-
-                        story.append(PlatypusImage(solution_image_path, width=sol_display_width, height=sol_display_height))
-                        story.append(Spacer(1, 0.1*inch))
-                    except Exception as e:
-                        story.append(Paragraph(f"Error loading solution image: {solution_image_path}. Error: {e}", styles['BodyText']))
-                else:
-                    story.append(Paragraph(f"Solution image not found: {solution_image_path}", styles['BodyText']))
-
-        except Exception as e:
-            story.append(Paragraph(f"Error loading image: {image_path}. Error: {e}", styles['BodyText']))
-    else:
-        story.append(Paragraph(f"Image not found: {image_path}", styles['BodyText']))
-
-    # Display full prompt without truncation, escape HTML tags
-    story.append(Paragraph(f"<b>Prompt:</b>", styles['BodyText']))
-    escaped_prompt = html.escape(prompt_text).replace('\n', '<br/>')
-    story.append(Paragraph(escaped_prompt, styles['Code']))
-
-    # Display answer/target information based on dataset type
-    if dataset_type == 'gui':
-        target_name = answer_data.get('name', 'N/A')
-        target_bbox = answer_data.get('bounding_box', 'N/A')
-        story.append(Paragraph(f"<b>Target Object:</b> {target_name}", styles['BodyText']))
-        story.append(Paragraph(f"<b>Target BBox:</b> {str(target_bbox)}", styles['BodyText']))
-    elif dataset_type == 'captcha':
-        target_class_name = answer_data.get('target_class_name', 'N/A')
-        article = "an" if target_class_name.lower()[0] in 'aeiou' else "a"
-        story.append(Paragraph(f"<b>Target:</b> Select all squares with {article} {target_class_name}", styles['BodyText']))
-        # Optionally, display the boolean list or a simple text representation if helpful
-        # story.append(Paragraph(f"<b>Target Squares (boolean):</b> {str(answer_data.get('target_squares_boolean'))}", styles['Code']))
-    else: # Clock, Correlation
-        story.append(Paragraph(f"<b>Ground Truth Answer:</b> {_truncate_text(str(answer_data), MAX_ANSWER_LENGTH_PDF)}", styles['BodyText']))
-    story.append(Spacer(1, 0.2*inch))
-
-def _add_completion_to_pdf(story: list, styles: dict, completion_text: str,
-                           metrics: Optional[Dict[str, Any]], completion_idx: int,
-                           dataset_type: str,
-                           image_path_for_completion_pdf: Optional[str] = None,
-                           captcha_data: Optional[Dict[str, Any]] = None):
-    story.append(Paragraph(f"Completion {completion_idx + 1}", styles['h3']))
-
-    # Display image for this completion (e.g., with click for GUI)
-    if image_path_for_completion_pdf and os.path.exists(image_path_for_completion_pdf):
-        try:
-            img = PILImage.open(image_path_for_completion_pdf)
-            img_width, img_height = img.size
-            aspect = img_height / float(img_width)
-            display_width = 2.0 * inch # Slightly smaller for completion image
-            display_height = display_width * aspect
-            if display_height > 3.0 * inch:
-                display_height = 3.0 * inch
-                display_width = display_height / aspect
-
-            story.append(PlatypusImage(image_path_for_completion_pdf, width=display_width, height=display_height))
-            story.append(Spacer(1, 0.05*inch))
-        except Exception as e:
-            story.append(Paragraph(f"Error loading completion image: {image_path_for_completion_pdf}. Error: {e}", styles['Italic']))
-
-    # Display full completion text (escaped)
-    story.append(Paragraph(f"<b>Full Model Output:</b>", styles['BodyText']))
-    escaped_completion = html.escape(completion_text).replace('\n', '<br/>')
-    story.append(Paragraph(escaped_completion, styles['Code']))
-    story.append(Spacer(1, 0.05*inch))
-
-    # Extract and display reasoning and answer separately
-    reasoning = _extract_tagged_content(completion_text, 'reasoning')
-    answer = _extract_tagged_content(completion_text, 'answer')
-
-    story.append(Paragraph(f"<b>Extracted Reasoning:</b>", styles['BodyText']))
-    story.append(Paragraph(html.escape(reasoning) if reasoning else "<i>N/A</i>", styles['Code']))
-    story.append(Spacer(1, 0.05*inch))
-
-    story.append(Paragraph(f"<b>Extracted Answer:</b>", styles['BodyText']))
-    story.append(Paragraph(html.escape(answer) if answer else "<i>N/A</i>", styles['Code']))
-    story.append(Spacer(1, 0.1*inch))
-
-    # Add CAPTCHA-specific plain English explanation if dataset_type is 'captcha' and captcha_data is provided
-    if dataset_type == 'captcha' and captcha_data is not None:
-        true_positives = captcha_data.get('true_positives', 0)
-        false_positives = captcha_data.get('false_positives', 0)
-        false_negatives = captcha_data.get('false_negatives', 0)
-        total_targets = captcha_data.get('total_targets', 0)
-        total_clicks = captcha_data.get('total_clicks', 0)
-
-        # Create plain English explanation
-        accuracy_text = [
-            f"<b>CAPTCHA Accuracy Summary:</b>",
-            f"• Model clicked {true_positives} out of {total_targets} correct targets ({true_positives/total_targets*100:.1f}% recall)" if total_targets > 0 else "• No correct targets to click",
-            f"• Model made {total_clicks} total clicks",
-        ]
-
-        if false_positives > 0:
-            accuracy_text.append(f"• Overclicked by {false_positives} (clicked {false_positives} incorrect squares)")
-
-        if false_negatives > 0:
-            accuracy_text.append(f"• Missed {false_negatives} correct targets")
-
-        # Add precision information
-        if total_clicks > 0:
-            precision = true_positives / total_clicks
-            accuracy_text.append(f"• Precision: {precision*100:.1f}% of clicks were on correct targets")
-
-        # Join with line breaks and add to PDF
-        story.append(Paragraph("<br/>".join(accuracy_text), styles['BodyText']))
-    story.append(Spacer(1, 0.1*inch))
-
-    if metrics:
-        # Create a more structured table for metrics if many, or simple paragraphs
-        metrics_data = [["Metric", "Value"]]
-        # Retrieve total_reward_this_completion from metrics if it exists
-        total_reward_val = metrics.pop('total_reward_this_completion', None)
-
-        for name, value in metrics.items():
-            # Optionally shorten name for display
-            display_name = name.replace("rewards/", "").replace("metrics/", "")
-            if isinstance(value, float):
-                metrics_data.append([display_name, f"{value:.4f}"])
-            else:
-                metrics_data.append([display_name, str(value)])
-
-        if total_reward_val is not None:
-             metrics_data.append(["Total Reward (this completion)", f"{total_reward_val:.4f}"])
-
-        if len(metrics_data) > 1:
-             # Adjusted colWidths: more space for metric name
-            table = Table(metrics_data, colWidths=[2.8*inch, 1.2*inch])
-            table.setStyle(TableStyle([
-                ('BACKGROUND', (0,0), (-1,0), colors.grey),
-                ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
-                ('ALIGN', (0,0), (-1,-1), 'LEFT'),
-                ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-                ('BOTTOMPADDING', (0,0), (-1,0), 12),
-                ('BACKGROUND', (0,1), (-1,-1), colors.beige),
-                ('GRID', (0,0), (-1,-1), 1, colors.black),
-                ('VALIGN', (0,0), (-1,-1), 'MIDDLE'), # Improve vertical alignment
-                ('WORDWRAP', (0,1), (0,-1)), # Allow metric names to wrap
-            ]))
-            story.append(table)
-    story.append(Spacer(1, 0.15*inch))
 
 def _process_single_completion_for_eval(
     completion_text: str,
@@ -638,64 +436,6 @@ def _calculate_and_log_final_metrics(all_avg_scores: dict, json_dir: str, round_
             print("    (No hard examples in this evaluation)")
         print("-" * 40)
 
-def _add_training_completion_to_pdf(story: list, styles: dict,
-                                    completion_text: str,
-                                    reward_breakdown: Dict[str, float],
-                                    advantage: float,
-                                    completion_idx: int,
-                                    dataset_type: str, # Added dataset_type for consistency
-                                    image_path_for_completion_pdf: Optional[str] = None):
-    """Adds details for a single training completion (including scores and advantage) to the PDF story."""
-    story.append(Paragraph(f"Training Completion {completion_idx + 1}", styles['h3']))
-
-    # Display visualized image (e.g., with click for GUI)
-    if image_path_for_completion_pdf and os.path.exists(image_path_for_completion_pdf):
-        try:
-            img = PILImage.open(image_path_for_completion_pdf)
-            img_width, img_height = img.size
-            aspect = img_height / float(img_width)
-            display_width = 2.0 * inch
-            display_height = display_width * aspect
-            if display_height > 3.0 * inch:
-                display_height = 3.0 * inch
-                display_width = display_height / aspect
-
-            story.append(PlatypusImage(image_path_for_completion_pdf, width=display_width, height=display_height))
-            story.append(Spacer(1, 0.05*inch))
-        except Exception as e:
-            story.append(Paragraph(f"Error loading training completion image: {image_path_for_completion_pdf}. Error: {e}", styles['Italic']))
-
-    # Display full completion text (escaped)
-    story.append(Paragraph(f"<b>Full Model Output:</b>", styles['BodyText']))
-    escaped_completion = html.escape(completion_text).replace('\n', '<br/>')
-    story.append(Paragraph(escaped_completion, styles['Code']))
-    story.append(Spacer(1, 0.05*inch))
-
-    # Display Reward Breakdown and Advantage
-    story.append(Paragraph(f"<b>Scores & Advantage:</b>", styles['BodyText']))
-    data_table = [["Component", "Value"]]
-    total_reward = 0
-    if reward_breakdown:
-        for name, value in reward_breakdown.items():
-            data_table.append([name, f"{value:.4f}"])
-            total_reward += value
-    data_table.append(["Total Reward (sum)", f"{total_reward:.4f}"])
-    data_table.append(["Advantage", f"{advantage:.4f}"])
-
-    table = Table(data_table, colWidths=[2.0*inch, 1.5*inch]) # Adjusted width
-    table.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,0), colors.darkblue),
-        ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
-        ('ALIGN', (0,0), (-1,-1), 'LEFT'),
-        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-        ('BOTTOMPADDING', (0,0), (-1,0), 8),
-        ('BACKGROUND', (0,1), (-1,-1), colors.lightblue),
-        ('GRID', (0,0), (-1,-1), 1, colors.black),
-        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ('WORDWRAP', (0,1), (0,-1)),
-    ]))
-    story.append(table)
-    story.append(Spacer(1, 0.15*inch))
 
 def plot_captcha_evaluation(
     base_image_path: str,
