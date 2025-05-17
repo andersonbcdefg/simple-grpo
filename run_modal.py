@@ -30,7 +30,7 @@ image = (
         "accelerate",
         "packaging",
         "ninja"
-    ).run_commands(
+    ).pip_install("hf_xet").run_commands(
         "git clone -b captcha --single-branch https://github.com/andersonbcdefg/simple-grpo.git ",
         force_build=True
     ).workdir("simple-grpo")
@@ -39,6 +39,6 @@ image = (
 
 app = modal.App('deepseek-extended')
 
-@app.function(image=image, gpu="H100")
+@app.function(image=image, gpu="H100", timeout=60 * 60 * 5)
 def hello():
     subprocess.run(["python", "main.py"])

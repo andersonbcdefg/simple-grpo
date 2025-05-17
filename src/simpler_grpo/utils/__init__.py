@@ -43,7 +43,7 @@ def clean_spaces_preserve_newlines(text):
 def seed_everything(seed: int) -> None:
     """
     Set random seed for reproducibility across multiple libraries.
-    
+
     This function sets consistent random seeds for Python's random module,
     NumPy, PyTorch (both CPU and CUDA), and configures CUDNN for deterministic
     operation. This ensures reproducible results across multiple runs.
@@ -56,7 +56,7 @@ def seed_everything(seed: int) -> None:
     torch.manual_seed(seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
-    
+
     # Additional settings for reproducibility
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
@@ -127,9 +127,9 @@ def get_per_token_logps(model, input_ids, attention_mask, logits_to_keep):
 
 def get_per_token_logps_vl(model, input_ids, attention_mask, image_path, tokenizer, logits_to_keep, prompt):
     """
-    We have the input ids - all the correct tokens including all chate templates/special tokens etc 
-    We just need to include the image - and have the same sort of obj to pass to the model to generate 
-    the logits 
+    We have the input ids - all the correct tokens including all chate templates/special tokens etc
+    We just need to include the image - and have the same sort of obj to pass to the model to generate
+    the logits
 
     So lets generate with the image
 
@@ -153,7 +153,7 @@ def get_per_token_logps_vl(model, input_ids, attention_mask, image_path, tokeniz
         },
     ]
 
-    text = tokenizer.apply_chat_template(conversation, add_generation_prompt=True, tokenize=False, padding_side="left")  
+    text = tokenizer.apply_chat_template(conversation, add_generation_prompt=True, tokenize=False, padding_side="left")
     image_inputs, video_inputs = process_vision_info(conversation)
 
     prompt_inputs = tokenizer(
@@ -172,7 +172,7 @@ def get_per_token_logps_vl(model, input_ids, attention_mask, image_path, tokeniz
             batched_prompt_inputs[key] = value.repeat(input_ids.shape[0], *([1] * (value.dim() - 1)))
         else:
             # Handle non-tensor items if necessary, otherwise just copy
-            batched_prompt_inputs[key] = value 
+            batched_prompt_inputs[key] = value
 
     batched_prompt_inputs["input_ids"] = input_ids
     batched_prompt_inputs["attention_mask"] = attention_mask
@@ -221,8 +221,8 @@ def _setup_pdf(pdf_path: str) -> tuple[SimpleDocTemplate, dict, list]:
     """Initializes the PDF document, styles, and story list."""
     doc = SimpleDocTemplate(pdf_path, pagesize=letter)
     styles = getSampleStyleSheet()
-    story = [] 
-    styles['Code'].fontSize = 10 
+    story = []
+    styles['Code'].fontSize = 10
     styles.add(ParagraphStyle(name='Bold', parent=styles['Normal'], fontName='Helvetica-Bold'))
     # Add a justified style for longer text blocks
     styles.add(ParagraphStyle(name='Justified', parent=styles['Normal'], alignment=TA_JUSTIFY))
@@ -233,14 +233,14 @@ def _truncate_text(text: str, max_length: int) -> str:
         return text[:max_length-3] + "..."
     return text
 
-def _add_example_header_to_pdf(story: list, styles: dict, image_path: str, 
+def _add_example_header_to_pdf(story: list, styles: dict, image_path: str,
                                prompt_text: str, answer_data: Any, example_num: int, dataset_type: str,
                                is_hard: bool = False):
     title = f"Example {example_num + 1}"
     if is_hard:
         title += " (Hard Subset)"
     story.append(Paragraph(title, styles['h2']))
-    
+
     # Display image if path is valid
     if os.path.exists(image_path):
         try:
@@ -253,14 +253,14 @@ def _add_example_header_to_pdf(story: list, styles: dict, image_path: str,
             if display_height > 3.5 * inch:
                 display_height = 3.5 * inch
                 display_width = display_height / aspect
-            
+
             # For CAPTCHA, add a header before the input image
             if dataset_type == 'captcha':
                 story.append(Paragraph("<b>Input CAPTCHA Image:</b>", styles['BodyText']))
-            
+
             story.append(PlatypusImage(image_path, width=display_width, height=display_height))
             story.append(Spacer(1, 0.1*inch))
-            
+
             # For CAPTCHA, also display the solution image if available
             if dataset_type == 'captcha' and answer_data and 'solution_image_path' in answer_data:
                 solution_image_path = answer_data['solution_image_path']
@@ -275,14 +275,14 @@ def _add_example_header_to_pdf(story: list, styles: dict, image_path: str,
                         if sol_display_height > 3.5 * inch:
                             sol_display_height = 3.5 * inch
                             sol_display_width = sol_display_height / sol_aspect
-                        
+
                         story.append(PlatypusImage(solution_image_path, width=sol_display_width, height=sol_display_height))
                         story.append(Spacer(1, 0.1*inch))
                     except Exception as e:
                         story.append(Paragraph(f"Error loading solution image: {solution_image_path}. Error: {e}", styles['BodyText']))
                 else:
                     story.append(Paragraph(f"Solution image not found: {solution_image_path}", styles['BodyText']))
-                    
+
         except Exception as e:
             story.append(Paragraph(f"Error loading image: {image_path}. Error: {e}", styles['BodyText']))
     else:
@@ -292,7 +292,7 @@ def _add_example_header_to_pdf(story: list, styles: dict, image_path: str,
     story.append(Paragraph(f"<b>Prompt:</b>", styles['BodyText']))
     escaped_prompt = html.escape(prompt_text).replace('\n', '<br/>')
     story.append(Paragraph(escaped_prompt, styles['Code']))
-    
+
     # Display answer/target information based on dataset type
     if dataset_type == 'gui':
         target_name = answer_data.get('name', 'N/A')
@@ -309,11 +309,11 @@ def _add_example_header_to_pdf(story: list, styles: dict, image_path: str,
         story.append(Paragraph(f"<b>Ground Truth Answer:</b> {_truncate_text(str(answer_data), MAX_ANSWER_LENGTH_PDF)}", styles['BodyText']))
     story.append(Spacer(1, 0.2*inch))
 
-def _add_completion_to_pdf(story: list, styles: dict, completion_text: str, 
-                           metrics: Optional[Dict[str, Any]], completion_idx: int, 
+def _add_completion_to_pdf(story: list, styles: dict, completion_text: str,
+                           metrics: Optional[Dict[str, Any]], completion_idx: int,
                            dataset_type: str,
                            image_path_for_completion_pdf: Optional[str] = None,
-                           captcha_data: Optional[Dict[str, Any]] = None): 
+                           captcha_data: Optional[Dict[str, Any]] = None):
     story.append(Paragraph(f"Completion {completion_idx + 1}", styles['h3']))
 
     # Display image for this completion (e.g., with click for GUI)
@@ -327,12 +327,12 @@ def _add_completion_to_pdf(story: list, styles: dict, completion_text: str,
             if display_height > 3.0 * inch:
                 display_height = 3.0 * inch
                 display_width = display_height / aspect
-            
+
             story.append(PlatypusImage(image_path_for_completion_pdf, width=display_width, height=display_height))
             story.append(Spacer(1, 0.05*inch))
         except Exception as e:
             story.append(Paragraph(f"Error loading completion image: {image_path_for_completion_pdf}. Error: {e}", styles['Italic']))
-    
+
     # Display full completion text (escaped)
     story.append(Paragraph(f"<b>Full Model Output:</b>", styles['BodyText']))
     escaped_completion = html.escape(completion_text).replace('\n', '<br/>')
@@ -358,25 +358,25 @@ def _add_completion_to_pdf(story: list, styles: dict, completion_text: str,
         false_negatives = captcha_data.get('false_negatives', 0)
         total_targets = captcha_data.get('total_targets', 0)
         total_clicks = captcha_data.get('total_clicks', 0)
-        
+
         # Create plain English explanation
         accuracy_text = [
             f"<b>CAPTCHA Accuracy Summary:</b>",
             f"• Model clicked {true_positives} out of {total_targets} correct targets ({true_positives/total_targets*100:.1f}% recall)" if total_targets > 0 else "• No correct targets to click",
             f"• Model made {total_clicks} total clicks",
         ]
-        
+
         if false_positives > 0:
             accuracy_text.append(f"• Overclicked by {false_positives} (clicked {false_positives} incorrect squares)")
-        
+
         if false_negatives > 0:
             accuracy_text.append(f"• Missed {false_negatives} correct targets")
-            
+
         # Add precision information
         if total_clicks > 0:
             precision = true_positives / total_clicks
             accuracy_text.append(f"• Precision: {precision*100:.1f}% of clicks were on correct targets")
-            
+
         # Join with line breaks and add to PDF
         story.append(Paragraph("<br/>".join(accuracy_text), styles['BodyText']))
     story.append(Spacer(1, 0.1*inch))
@@ -385,7 +385,7 @@ def _add_completion_to_pdf(story: list, styles: dict, completion_text: str,
         # Create a more structured table for metrics if many, or simple paragraphs
         metrics_data = [["Metric", "Value"]]
         # Retrieve total_reward_this_completion from metrics if it exists
-        total_reward_val = metrics.pop('total_reward_this_completion', None) 
+        total_reward_val = metrics.pop('total_reward_this_completion', None)
 
         for name, value in metrics.items():
             # Optionally shorten name for display
@@ -394,10 +394,10 @@ def _add_completion_to_pdf(story: list, styles: dict, completion_text: str,
                 metrics_data.append([display_name, f"{value:.4f}"])
             else:
                 metrics_data.append([display_name, str(value)])
-        
+
         if total_reward_val is not None:
              metrics_data.append(["Total Reward (this completion)", f"{total_reward_val:.4f}"])
-        
+
         if len(metrics_data) > 1:
              # Adjusted colWidths: more space for metric name
             table = Table(metrics_data, colWidths=[2.8*inch, 1.2*inch])
@@ -416,10 +416,10 @@ def _add_completion_to_pdf(story: list, styles: dict, completion_text: str,
     story.append(Spacer(1, 0.15*inch))
 
 def _process_single_completion_for_eval(
-    completion_text: str, 
-    eval_class: evaluator.RewardEvaluator, 
+    completion_text: str,
+    eval_class: evaluator.RewardEvaluator,
     answer_data: Any, # This is target_details for GUI, answer_str for clock/correlation
-    device: str, 
+    device: str,
     story: Optional[list] = None, # Make it optional
     styles: Optional[dict] = None, # Make it optional
     completion_idx: int = 0,
@@ -467,7 +467,7 @@ def _process_single_completion_for_eval(
     # rewards_per_func_single should be for one sample, e.g., shape [1, num_reward_components]
     # We need to pass the actual reward scores for this one completion to get_reward_breakdown
     reward_scores_for_breakdown = rewards_per_func_single[0] # Get the tensor for the first (only) sample
-    
+
     # Add overall reward to the metrics
     total_reward_single = reward_scores_for_breakdown.sum().item()
     processed_metrics_for_return['reward'] = total_reward_single # Ensure 'reward' key exists
@@ -476,13 +476,13 @@ def _process_single_completion_for_eval(
     # Only attempt PDF operations if story and styles are provided
     if story is not None and styles is not None:
         reward_breakdown_for_pdf = eval_class.get_reward_breakdown(reward_scores_for_breakdown)
-        
+
         # Add total_reward_single to the dictionary that will be passed as metrics to _add_completion_to_pdf
         reward_breakdown_for_pdf['total_reward_this_completion'] = total_reward_single
-        
+
         img_path_for_pdf_entry = None
         captcha_stats = None
-        
+
         if dataset_type == 'gui' and original_image_path and vis_image_path_for_pdf and gui_plotter:
             try:
                 # Plot click for GUI task if a plotter is provided
@@ -491,10 +491,10 @@ def _process_single_completion_for_eval(
                     if parsed_click:
                         pil_img = PILImage.open(original_image_path)
                         plot_data = [{
-                            "name": "VLM Click", 
-                            "center_x": parsed_click[0], 
+                            "name": "VLM Click",
+                            "center_x": parsed_click[0],
                             "center_y": parsed_click[1],
-                            "is_truth": False 
+                            "is_truth": False
                         }]
                         # GUIGenerator.plot_predictions returns a PIL Image
                         img_w_click = gui_plotter(pil_img, plot_data, pred_color="red")
@@ -512,23 +512,23 @@ def _process_single_completion_for_eval(
         elif dataset_type == 'captcha' and original_image_path and vis_image_path_for_pdf:
             # CAPTCHA specific PDF logging for evaluation
             img_path_for_pdf_entry = None
-            
+
             # Create a temporary CaptchaEvaluator to extract clicks
             from evaluator import CaptchaEvaluator
             temp_captcha_evaluator = CaptchaEvaluator()
             predicted_clicks = temp_captcha_evaluator._extract_click_calls(completion_text)
-            
+
             # Calculate CAPTCHA accuracy stats for the plain English summary
             if 'target_squares_boolean' in answer_data:
                 target_squares_boolean = answer_data['target_squares_boolean']
                 total_targets = sum(1 for x in target_squares_boolean if x)
                 total_clicks = len(predicted_clicks)
-                
+
                 # Manually calculate TP, FP, FN for clarity
                 tp = 0  # True positives
                 fp = 0  # False positives
                 clicked_squares = set()
-                
+
                 # For each click, determine which square it falls in and if it's a target
                 for px, py in predicted_clicks:
                     # Convert pixel coordinates to grid cell
@@ -543,23 +543,23 @@ def _process_single_completion_for_eval(
                     final_grid_start_y = (CAPTCHA_PADDING_SIZE + CAPTCHA_BANNER_ABS_HEIGHT) * scale_y
                     final_cell_width = CAPTCHA_CELL_DIM * scale_x
                     final_cell_height = CAPTCHA_CELL_DIM * scale_y
-                    
+
                     # Determine grid position
-                    if (px < final_grid_start_x or py < final_grid_start_y or 
-                        px >= final_grid_start_x + final_cell_width * CAPTCHA_GRID_SIZE or 
+                    if (px < final_grid_start_x or py < final_grid_start_y or
+                        px >= final_grid_start_x + final_cell_width * CAPTCHA_GRID_SIZE or
                         py >= final_grid_start_y + final_cell_height * CAPTCHA_GRID_SIZE):
                         # Click is outside the grid
                         fp += 1
                         continue
-                    
+
                     # Calculate which cell was clicked
                     col = int((px - final_grid_start_x) / final_cell_width)
                     row = int((py - final_grid_start_y) / final_cell_height)
                     col = max(0, min(col, CAPTCHA_GRID_SIZE - 1))
                     row = max(0, min(row, CAPTCHA_GRID_SIZE - 1))
-                    
+
                     square_idx = row * CAPTCHA_GRID_SIZE + col
-                    
+
                     # Only count unique square clicks (first click per square)
                     if square_idx not in clicked_squares:
                         clicked_squares.add(square_idx)
@@ -568,10 +568,10 @@ def _process_single_completion_for_eval(
                             tp += 1
                         else:
                             fp += 1
-                
+
                 # Calculate false negatives (missed targets)
                 fn = total_targets - tp
-                
+
                 # Store the stats for the plain English explanation
                 captcha_stats = {
                     'true_positives': tp,
@@ -580,7 +580,7 @@ def _process_single_completion_for_eval(
                     'total_targets': total_targets,
                     'total_clicks': total_clicks
                 }
-            
+
             # Plot the visualization with the clicks
             plot_captcha_evaluation(
                 base_image_path=original_image_path,
@@ -589,20 +589,20 @@ def _process_single_completion_for_eval(
                 output_path=vis_image_path_for_pdf,
                 verbose=verbose)
             img_path_for_pdf_entry = vis_image_path_for_pdf
-                
+
         elif dataset_type != 'gui' and original_image_path:
              img_path_for_pdf_entry = original_image_path
 
         # Add the completion to the PDF with the appropriate image and CAPTCHA stats
         _add_completion_to_pdf(
-            story, styles, completion_text, 
+            story, styles, completion_text,
             metrics=reward_breakdown_for_pdf, # Pass the breakdown as metrics
             completion_idx=completion_idx,
             dataset_type=dataset_type,
             image_path_for_completion_pdf=img_path_for_pdf_entry, # Pass the plotted image
             captcha_data=captcha_stats # Pass the captcha statistics
         )
-        
+
     # --- End PDF Logging Section ---
 
     return processed_metrics_for_return
@@ -614,7 +614,7 @@ def _calculate_and_log_final_metrics(all_avg_scores: dict, json_dir: str, round_
     with open(avg_scores_path, 'w') as f:
         # Log all average scores (overall, normal, hard)
         json.dump(all_avg_scores, f, indent=4)
-    
+
     if verbose:
         print(f"\n--- Evaluation Results (Round {round_num}) ---")
         print(f"Average scores saved to {avg_scores_path}")
@@ -638,11 +638,11 @@ def _calculate_and_log_final_metrics(all_avg_scores: dict, json_dir: str, round_
             print("    (No hard examples in this evaluation)")
         print("-" * 40)
 
-def _add_training_completion_to_pdf(story: list, styles: dict, 
-                                    completion_text: str, 
-                                    reward_breakdown: Dict[str, float], 
-                                    advantage: float, 
-                                    completion_idx: int, 
+def _add_training_completion_to_pdf(story: list, styles: dict,
+                                    completion_text: str,
+                                    reward_breakdown: Dict[str, float],
+                                    advantage: float,
+                                    completion_idx: int,
                                     dataset_type: str, # Added dataset_type for consistency
                                     image_path_for_completion_pdf: Optional[str] = None):
     """Adds details for a single training completion (including scores and advantage) to the PDF story."""
@@ -654,17 +654,17 @@ def _add_training_completion_to_pdf(story: list, styles: dict,
             img = PILImage.open(image_path_for_completion_pdf)
             img_width, img_height = img.size
             aspect = img_height / float(img_width)
-            display_width = 2.0 * inch 
+            display_width = 2.0 * inch
             display_height = display_width * aspect
             if display_height > 3.0 * inch:
                 display_height = 3.0 * inch
                 display_width = display_height / aspect
-            
+
             story.append(PlatypusImage(image_path_for_completion_pdf, width=display_width, height=display_height))
             story.append(Spacer(1, 0.05*inch))
         except Exception as e:
             story.append(Paragraph(f"Error loading training completion image: {image_path_for_completion_pdf}. Error: {e}", styles['Italic']))
-    
+
     # Display full completion text (escaped)
     story.append(Paragraph(f"<b>Full Model Output:</b>", styles['BodyText']))
     escaped_completion = html.escape(completion_text).replace('\n', '<br/>')
@@ -681,7 +681,7 @@ def _add_training_completion_to_pdf(story: list, styles: dict,
             total_reward += value
     data_table.append(["Total Reward (sum)", f"{total_reward:.4f}"])
     data_table.append(["Advantage", f"{advantage:.4f}"])
-    
+
     table = Table(data_table, colWidths=[2.0*inch, 1.5*inch]) # Adjusted width
     table.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,0), colors.darkblue),
@@ -707,17 +707,13 @@ def plot_captcha_evaluation(
     """Just plots X's where the model clicked."""
     img = PILImage.open(base_image_path).convert("RGB")
     draw = ImageDraw.Draw(img)
-    
+
     # Draw an X for each click
     for x, y in predicted_clicks:
         # Draw X with fixed size
         size = 10
         draw.line([(x - size, y - size), (x + size, y + size)], fill=(255, 0, 0), width=3)
         draw.line([(x + size, y - size), (x - size, y + size)], fill=(255, 0, 0), width=3)
-    
+
     img.save(output_path)
     return True
-
-
-
-
