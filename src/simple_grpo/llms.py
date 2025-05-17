@@ -1,14 +1,18 @@
 """
-Module for loading LLMs and their tokenizers from huggingface. 
+Module for loading LLMs and their tokenizers from huggingface.
 
 """
+
 import torch
-from transformers import AutoTokenizer, AutoModelForCausalLM, PreTrainedModel, PreTrainedTokenizerBase
+from transformers.modeling_utils import PreTrainedModel
+from transformers.tokenization_utils_base import PreTrainedTokenizerBase
+from transformers.models.qwen2_5_vl import Qwen2_5_VLForConditionalGeneration
+from transformers.models.auto.processing_auto import AutoProcessor
 
-from transformers import Qwen2_5_VLForConditionalGeneration, AutoTokenizer, AutoProcessor
-from qwen_vl_utils import process_vision_info
 
-def get_llm_tokenizer(model_name: str, device: str) -> tuple[PreTrainedModel, PreTrainedTokenizerBase]:
+def get_llm_tokenizer(
+    model_name: str, device: str
+) -> tuple[PreTrainedModel, PreTrainedTokenizerBase]:
     """
     Load and configure a language model and its tokenizer.
 
@@ -37,7 +41,6 @@ def get_llm_tokenizer(model_name: str, device: str) -> tuple[PreTrainedModel, Pr
 
     processor.tokenizer.padding_side = "left"
     processor.padding_side = "left"
-
 
     # This fixed ~'need to set the pdadding.left' but even if you do that nothing works
     model.config.use_cache = False

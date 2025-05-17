@@ -5,8 +5,8 @@ Generic image classification models and training utilities.
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from typing import Any
 from torchvision.models import resnet50, ResNet50_Weights
+
 
 class SimpleCNN(nn.Module):
     """
@@ -74,9 +74,9 @@ def get_model(model_name: str, num_classes: int) -> nn.Module:
     Returns:
         PyTorch model
     """
-    if model_name == 'simple_cnn':
+    if model_name == "simple_cnn":
         return SimpleCNN(num_classes=num_classes)
-    elif model_name == 'resnet50':
+    elif model_name == "resnet50":
         # Load pretrained ResNet50
         model = resnet50(weights=ResNet50_Weights.DEFAULT)
 
@@ -86,7 +86,9 @@ def get_model(model_name: str, num_classes: int) -> nn.Module:
 
         return model
     else:
-        raise ValueError(f"Model '{model_name}' not supported. Available models: 'simple_cnn', 'resnet50'")
+        raise ValueError(
+            f"Model '{model_name}' not supported. Available models: 'simple_cnn', 'resnet50'"
+        )
 
 
 def train_model(
@@ -95,7 +97,7 @@ def train_model(
     test_loader: torch.utils.data.DataLoader,
     num_epochs: int = 10,
     learning_rate: float = 0.001,
-    device: str = "cuda" if torch.cuda.is_available() else "cpu"
+    device: str = "cuda" if torch.cuda.is_available() else "cpu",
 ) -> tuple[nn.Module, dict[str, list]]:
     """
     Train an image classification model.
@@ -118,12 +120,7 @@ def train_model(
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
     # Training history
-    history = {
-        'train_loss': [],
-        'train_acc': [],
-        'test_loss': [],
-        'test_acc': []
-    }
+    history = {"train_loss": [], "train_acc": [], "test_loss": [], "test_acc": []}
 
     # Training loop
     for epoch in range(num_epochs):
@@ -180,14 +177,16 @@ def train_model(
         epoch_test_acc = 100 * test_correct / test_total
 
         # Update history
-        history['train_loss'].append(epoch_train_loss)
-        history['train_acc'].append(epoch_train_acc)
-        history['test_loss'].append(epoch_test_loss)
-        history['test_acc'].append(epoch_test_acc)
+        history["train_loss"].append(epoch_train_loss)
+        history["train_acc"].append(epoch_train_acc)
+        history["test_loss"].append(epoch_test_loss)
+        history["test_acc"].append(epoch_test_acc)
 
         # Print progress
-        print(f'Epoch [{epoch+1}/{num_epochs}]: '
-              f'Train Loss: {epoch_train_loss:.4f}, Train Acc: {epoch_train_acc:.2f}%, '
-              f'Test Loss: {epoch_test_loss:.4f}, Test Acc: {epoch_test_acc:.2f}%')
+        print(
+            f"Epoch [{epoch + 1}/{num_epochs}]: "
+            f"Train Loss: {epoch_train_loss:.4f}, Train Acc: {epoch_train_acc:.2f}%, "
+            f"Test Loss: {epoch_test_loss:.4f}, Test Acc: {epoch_test_acc:.2f}%"
+        )
 
     return model, history
