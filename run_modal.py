@@ -1,5 +1,5 @@
-import subprocess
 import modal
+import subprocess
 
 
 def nums(x):
@@ -42,10 +42,9 @@ image = (
     .workdir("simple-grpo")
 )
 
-
 app = modal.App("deepseek-extended")
 
 
 @app.function(image=image, gpu="H100", timeout=60 * 60 * 5)
 def hello():
-    subprocess.run(["python", "-m", "simpler_grpo.main"])
+    subprocess.run(["python", "-m", "simple_grpo.main"])
