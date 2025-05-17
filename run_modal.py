@@ -41,4 +41,4 @@ app = modal.App('deepseek-extended')
 
 @app.function(image=image, gpu="H100", timeout=60 * 60 * 5)
 def hello():
-    subprocess.run(["python", "main.py"])
+    subprocess.run(["python", "-m", "simpler_grpo.main"])

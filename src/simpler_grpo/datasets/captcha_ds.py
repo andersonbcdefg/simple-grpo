@@ -5,8 +5,13 @@ import random
 from tqdm import tqdm # For progress bar
 
 # Assuming captcha_generator.py is in the same directory or accessible in PYTHONPATH
-from captcha_generator import CaptchaGenerator, MOTORCYCLE_CLASS_ID, CAR_CLASS_ID, CITYSCAPES_CLASSES
-from captcha_generator import (
+from simpler_grpo.datasets.captcha_generator import (
+    CaptchaGenerator,
+    MOTORCYCLE_CLASS_ID,
+    CAR_CLASS_ID,
+    CITYSCAPES_CLASSES,
+)
+from simpler_grpo.datasets.captcha_generator import (
     SQUARE_CROP_DIM, GRID_SIZE, CELL_DIM, BANNER_ABS_HEIGHT,
     FINAL_DIM, PADDING_SIZE, DEFAULT_SEED
 )

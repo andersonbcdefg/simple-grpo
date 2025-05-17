@@ -87,7 +87,7 @@ To replicate or experiment with the clock reading task:
 
 3.  **Run Training:** Execute the main script:
     ```bash
-    python main.py \
+    python -m simpler_grpo.main \
         --model_path Qwen/Qwen-VL-Chat \
         --dataset_name clock \
         --output_dir ./clock_experiment_output \
@@ -126,7 +126,7 @@ This demonstrates the model's ability to learn numerical relationships presented
     *   Set `--output_dir`.
 3.  **Run Training:**
     ```bash
-    python main.py \\
+    python -m simpler_grpo.main \\
         --model_path Qwen/Qwen-VL-Chat \\
         --dataset_name correlation \\
         --output_dir ./correlation_experiment_output \\

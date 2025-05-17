@@ -9,9 +9,9 @@ from collections import defaultdict
 import anthropic
 
 # Assuming these modules are in the same environment/PYTHONPATH
-import rldatasets
-import evaluator
-import utils # We'll use some helpers from here
+from simpler_grpo.datasets import rldatasets
+from simpler_grpo import evaluator
+from simpler_grpo import utils  # We'll use some helpers from here
 
 # --- Claude API Configuration ---
 # User should ensure ANTHROPIC_API_KEY is set in their environment

@@ -6,9 +6,11 @@ import random
 import os
 from typing import Tuple, Any, Dict
 from abc import ABC, abstractmethod
-from clock_generator import TimeObj, ClockGen
-from correlation_generator import generate_correlation_plot # Import the correlation generator
-from gui_generator import GUIGenerator # Import the new GUI generator
+from simpler_grpo.datasets.clock_generator import TimeObj, ClockGen
+from simpler_grpo.datasets.correlation_generator import (
+    generate_correlation_plot,
+)
+from simpler_grpo.datasets.gui_generator import GUIGenerator
 import json # For loading metadata in Captcha loader
 from PIL import Image # For loading images in Captcha loader
 
