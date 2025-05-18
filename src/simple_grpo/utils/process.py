@@ -1,7 +1,7 @@
 import torch
 from typing import Callable, Any, cast
 from simple_grpo.typedefs import MessageListBatch
-from simple_grpo.utils import plot_captcha_evaluation
+from simple_grpo.utils.plotter import plot_captcha_evaluation
 from ..evaluator import RewardEvaluator, GUIEvaluator
 from PIL import Image as PILImage
 from simple_grpo.utils.reports import _add_completion_to_pdf

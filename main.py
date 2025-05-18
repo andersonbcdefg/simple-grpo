@@ -18,6 +18,7 @@ from transformers.generation.configuration_utils import GenerationConfig
 # Import necessary modules and constants for PDF generation in main
 from PIL import Image as PILImage
 from simple_grpo.utils import MAX_COMPLETIONS_PER_PAGE_PDF, set_dtype
+from simple_grpo.utils.plotter import plot_captcha_evaluation
 from simple_grpo.utils.reports import (
     PageBreak,
     _setup_pdf,
@@ -1052,7 +1053,7 @@ if __name__ == "__main__":
                     )
 
                     # Plot the visualization with the clicks
-                    utils.plot_captcha_evaluation(
+                    plot_captcha_evaluation(
                         base_image_path=log_data["img_path"],
                         predicted_clicks=predicted_clicks,
                         target_squares_boolean=log_data["prompt_info"][

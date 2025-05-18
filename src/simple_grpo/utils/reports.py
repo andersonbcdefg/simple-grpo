@@ -24,7 +24,7 @@ from reportlab.platypus import (
 )
 from simple_grpo import evaluator
 from simple_grpo.typedefs import MessageListBatch
-from simple_grpo.utils import plot_captcha_evaluation
+from simple_grpo.utils.plotter import plot_captcha_evaluation
 from simple_grpo.datasets.captcha_generator import (
     FINAL_DIM as CAPTCHA_FINAL_DIM,
     GRID_SIZE as CAPTCHA_GRID_SIZE,

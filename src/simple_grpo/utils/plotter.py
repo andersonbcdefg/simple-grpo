@@ -8,6 +8,33 @@ from matplotlib.ticker import MaxNLocator
 import re
 from collections import defaultdict
 import shutil
+from PIL import Image as PILImage, ImageDraw
+
+
+def plot_captcha_evaluation(
+    base_image_path: str,
+    predicted_clicks: list[tuple[int, int]],
+    target_squares_boolean: list[bool],
+    output_path: str,
+    verbose: bool = False,
+) -> bool:
+    """Just plots X's where the model clicked."""
+    img = PILImage.open(base_image_path).convert("RGB")
+    draw = ImageDraw.Draw(img)
+
+    # Draw an X for each click
+    for x, y in predicted_clicks:
+        # Draw X with fixed size
+        size = 10
+        draw.line(
+            [(x - size, y - size), (x + size, y + size)], fill=(255, 0, 0), width=3
+        )
+        draw.line(
+            [(x + size, y - size), (x - size, y + size)], fill=(255, 0, 0), width=3
+        )
+
+    img.save(output_path)
+    return True
 
 
 def moving_average(data, window_size=5):
