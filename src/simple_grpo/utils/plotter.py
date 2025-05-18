@@ -7,7 +7,6 @@ from matplotlib.backends.backend_pdf import PdfPages
 from matplotlib.ticker import MaxNLocator
 import re
 from collections import defaultdict
-from typing import Optional  # Added for type hinting
 import shutil
 
 
@@ -52,7 +51,7 @@ def plot_metric(
     values,
     output_path,
     line_color_hex,
-    claude_score: Optional[float] = None,
+    claude_score: float | None = None,
 ):
     """Plots a single metric over rounds and saves it as a PNG."""
     global text_color, bg_color, grid_color  # Ensure access to global style vars

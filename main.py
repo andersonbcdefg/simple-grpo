@@ -30,6 +30,7 @@ from simple_grpo import utils
 from simple_grpo import evaluator
 from simple_grpo.datasets import rldatasets
 from simple_grpo.datasets.gui_generator import GUIGenerator  # For PDF plotting
+from simple_grpo.utils.process import _process_single_completion_for_eval
 
 
 def eval_on_test_set(
@@ -130,7 +131,7 @@ def eval_on_test_set(
             )
 
             # Process single completion also handles plotting for GUI task
-            metrics_single = utils._process_single_completion_for_eval(
+            metrics_single = _process_single_completion_for_eval(
                 completion_text=completion_text,
                 eval_class=eval_class,
                 answer_data=answer_for_eval_and_pdf,  # This is target_details for GUI

@@ -8,7 +8,7 @@ import torch
 import math
 import numpy as np  # Added numpy
 from abc import ABC, abstractmethod
-from typing import Any, Optional
+from typing import Any
 from simple_grpo.datasets.clock_generator import TimeObj  # Import TimeObj
 from simple_grpo.datasets.gui_generator import (
     IMAGE_WIDTH,
@@ -509,7 +509,7 @@ class GUIEvaluator(RewardEvaluator):
             "window_maximize_button",
         }
 
-    def _extract_coordinates(self, text: str) -> Optional[tuple[int, int]]:
+    def _extract_coordinates(self, text: str) -> tuple[int, int] | None:
         """Extract x,y coordinates from the <answer> tag."""
         try:
             answer_content = text.split("<answer>")[-1].split("</answer>")[0].strip()
@@ -529,9 +529,9 @@ class GUIEvaluator(RewardEvaluator):
 
     def _is_click_in_bbox(
         self,
-        click_xy: Optional[tuple[int, int]],
+        click_xy: tuple[int, int] | None,
         target_bbox: tuple[int, int, int, int],
-        target_name: Optional[str] = None,
+        target_name: str | None = None,
     ) -> bool:
         """Check if the click (x,y) is within the target area (bbox or circle radius)."""
         if click_xy is None:
@@ -572,7 +572,7 @@ class GUIEvaluator(RewardEvaluator):
 
     def _click_hit_reward(
         self,
-        extracted_coords: list[Optional[tuple[int, int]]],
+        extracted_coords: list[tuple[int, int] | None],
         target_bboxes: list[tuple[int, int, int, int]],
         target_names: list[str],
     ) -> list[float]:
@@ -588,7 +588,7 @@ class GUIEvaluator(RewardEvaluator):
 
     def _distance_to_center_reward(
         self,
-        extracted_coords: list[Optional[tuple[int, int]]],
+        extracted_coords: list[tuple[int, int] | None],
         target_centers: list[tuple[int, int]],
         target_bboxes: list[tuple[int, int, int, int]],
     ) -> tuple[list[float], list[float]]:

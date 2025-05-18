@@ -1,11 +1,6 @@
 import modal
 import subprocess
 
-
-def nums(x):
-    return "".join([ch for ch in x if ch.isdigit()])
-
-
 python_version = "3.11"
 flash_attn_version = "2.6.3"
 pytorch_version = "2.7.0"
@@ -40,12 +35,15 @@ image = (
         "cd simple-grpo && pip install -e .",
         force_build=True,
     )
-    .workdir("simple-grpo")
+    .entrypoint([])
 )
+# image = modal.Image.debian_slim(python_version="3.11")
 
-app = modal.App("deepseek-extended")
+app = modal.App("deepseek-extended2")
 
 
 @app.function(image=image, gpu="H100", timeout=60 * 60 * 5)
-def hello():
-    subprocess.run(["python", "-m", "simple_grpo.main"])
+def run():
+    # print(os.listdir("."))
+    # print(os.listdir("/"))
+    subprocess.run(["python", "main.py"], cwd="/simple-grpo")
