@@ -17,7 +17,7 @@ from transformers.generation.configuration_utils import GenerationConfig
 
 # Import necessary modules and constants for PDF generation in main
 from PIL import Image as PILImage
-from simple_grpo.utils import MAX_COMPLETIONS_PER_PAGE_PDF, set_dtype
+from simple_grpo.utils import MAX_COMPLETIONS_PER_PAGE_PDF
 from simple_grpo.utils.plotter import plot_captcha_evaluation
 from simple_grpo.utils.reports import (
     PageBreak,
@@ -265,14 +265,18 @@ def generate_completions(
     image_inputs, video_inputs = process_vision_info(conversation)  # type: ignore
 
     # Ensure left padding for tokenizer/processor before tokenizing
-    prompt_inputs = tokenizer(
-        text=[cast(str, text)],
-        images=image_inputs,
-        videos=video_inputs,
-        padding=True,
-        return_tensors="pt",
-    ).to(model.device)
-    prompt_inputs = set_dtype(prompt_inputs, model.dtype)
+    prompt_inputs = (
+        tokenizer(
+            text=[cast(str, text)],
+            images=image_inputs,
+            videos=video_inputs,
+            padding=True,
+            return_tensors="pt",
+        )
+        .to(model.device)
+        .to(model.dtype)  # type: ignore
+    )
+    # prompt_inputs = set_dtype(prompt_inputs, model.dtype)
 
     # Repeat input tensors for batch generation
     if eval:

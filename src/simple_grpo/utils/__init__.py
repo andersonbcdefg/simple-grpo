@@ -17,11 +17,10 @@ MAX_PROMPT_LENGTH_PDF = 300  # Add the missing constant definition
 MAX_ANSWER_LENGTH_PDF = 200
 MAX_COMPLETION_LENGTH_PDF = 500
 
+
 ####################
 ## MISC FUNCTIONS ##
 ####################
-
-
 def set_dtype(encoding: BatchEncoding, dtype: torch.dtype | str):
     for k, v in encoding.items():
         if isinstance(v, torch.Tensor):
