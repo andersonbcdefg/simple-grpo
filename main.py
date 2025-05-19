@@ -925,8 +925,9 @@ if __name__ == "__main__":
             "img_path": img_path,
             "prompt_info": data_for_grpo,  # Contains target_details for GUI, prompt_str otherwise
             "completions_text": completions_text,
-            "rewards_per_func": rewards_per_func,
-            "advantages": advantages,
+            # Store on CPU and detach to avoid GPU memory leaks and grad tracking
+            "rewards_per_func": rewards_per_func.detach().cpu(),
+            "advantages": advantages.detach().cpu(),
         }
 
         # Gradient accumulation and optimizer step
