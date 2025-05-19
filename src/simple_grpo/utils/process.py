@@ -108,18 +108,19 @@ def _process_single_completion_for_eval(
                         completion_text
                     )  # Protected access, but used in main.py
                     if parsed_click:
-                        pil_img = PILImage.open(original_image_path)
-                        plot_data = [
-                            {
-                                "name": "VLM Click",
-                                "center_x": parsed_click[0],
-                                "center_y": parsed_click[1],
-                                "is_truth": False,
-                            }
-                        ]
-                        # GUIGenerator.plot_predictions returns a PIL Image
-                        img_w_click = gui_plotter(pil_img, plot_data, pred_color="red")
-                        img_w_click.save(vis_image_path_for_pdf)
+                        with PILImage.open(original_image_path) as pil_img:
+                            plot_data = [
+                                {
+                                    "name": "VLM Click",
+                                    "center_x": parsed_click[0],
+                                    "center_y": parsed_click[1],
+                                    "is_truth": False,
+                                }
+                            ]
+                            # GUIGenerator.plot_predictions returns a PIL Image
+                            img_w_click = gui_plotter(pil_img, plot_data, pred_color="red")
+                            img_w_click.save(vis_image_path_for_pdf)
+                            img_w_click.close()
                         img_path_for_pdf_entry = vis_image_path_for_pdf
                     else:
                         # If click not parsed, use original image for PDF (or None if vis_image_path_for_pdf was for specific click)

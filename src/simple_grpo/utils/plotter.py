@@ -19,21 +19,23 @@ def plot_captcha_evaluation(
     verbose: bool = False,
 ) -> bool:
     """Just plots X's where the model clicked."""
-    img = PILImage.open(base_image_path).convert("RGB")
-    draw = ImageDraw.Draw(img)
+    with PILImage.open(base_image_path) as img:
+        img = img.convert("RGB")
+        draw = ImageDraw.Draw(img)
 
-    # Draw an X for each click
-    for x, y in predicted_clicks:
-        # Draw X with fixed size
-        size = 10
-        draw.line(
-            [(x - size, y - size), (x + size, y + size)], fill=(255, 0, 0), width=3
-        )
-        draw.line(
-            [(x + size, y - size), (x - size, y + size)], fill=(255, 0, 0), width=3
-        )
+        # Draw an X for each click
+        for x, y in predicted_clicks:
+            # Draw X with fixed size
+            size = 10
+            draw.line(
+                [(x - size, y - size), (x + size, y + size)], fill=(255, 0, 0), width=3
+            )
+            draw.line(
+                [(x + size, y - size), (x - size, y + size)], fill=(255, 0, 0), width=3
+            )
 
-    img.save(output_path)
+        img.save(output_path)
+        img.close()
     return True
 
 

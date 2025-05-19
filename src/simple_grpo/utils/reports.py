@@ -86,8 +86,8 @@ def _add_example_header_to_pdf(
     # Display image if path is valid
     if os.path.exists(image_path):
         try:
-            img = PILImage.open(image_path)
-            img_width, img_height = img.size
+            with PILImage.open(image_path) as img:
+                img_width, img_height = img.size
             aspect = img_height / float(img_width)
             display_width = 2.5 * inch  # Max width for the image in PDF
             display_height = display_width * aspect
@@ -122,8 +122,8 @@ def _add_example_header_to_pdf(
                                 styles["BodyText"],
                             )
                         )
-                        sol_img = PILImage.open(solution_image_path)
-                        sol_img_width, sol_img_height = sol_img.size
+                        with PILImage.open(solution_image_path) as sol_img:
+                            sol_img_width, sol_img_height = sol_img.size
                         sol_aspect = sol_img_height / float(sol_img_width)
                         sol_display_width = 2.5 * inch
                         sol_display_height = sol_display_width * sol_aspect
@@ -214,8 +214,8 @@ def _add_completion_to_pdf(
     # Display image for this completion (e.g., with click for GUI)
     if image_path_for_completion_pdf and os.path.exists(image_path_for_completion_pdf):
         try:
-            img = PILImage.open(image_path_for_completion_pdf)
-            img_width, img_height = img.size
+            with PILImage.open(image_path_for_completion_pdf) as img:
+                img_width, img_height = img.size
             aspect = img_height / float(img_width)
             display_width = 2.0 * inch  # Slightly smaller for completion image
             display_height = display_width * aspect
@@ -434,18 +434,19 @@ def _process_single_completion_for_eval(
                         completion_text
                     )  # Protected access, but used in main.py
                     if parsed_click:
-                        pil_img = PILImage.open(original_image_path)
-                        plot_data = [
-                            {
-                                "name": "VLM Click",
-                                "center_x": parsed_click[0],
-                                "center_y": parsed_click[1],
-                                "is_truth": False,
-                            }
-                        ]
-                        # GUIGenerator.plot_predictions returns a PIL Image
-                        img_w_click = gui_plotter(pil_img, plot_data, pred_color="red")
-                        img_w_click.save(vis_image_path_for_pdf)
+                        with PILImage.open(original_image_path) as pil_img:
+                            plot_data = [
+                                {
+                                    "name": "VLM Click",
+                                    "center_x": parsed_click[0],
+                                    "center_y": parsed_click[1],
+                                    "is_truth": False,
+                                }
+                            ]
+                            # GUIGenerator.plot_predictions returns a PIL Image
+                            img_w_click = gui_plotter(pil_img, plot_data, pred_color="red")
+                            img_w_click.save(vis_image_path_for_pdf)
+                            img_w_click.close()
                         img_path_for_pdf_entry = vis_image_path_for_pdf
                     else:
                         # If click not parsed, use original image for PDF (or None if vis_image_path_for_pdf was for specific click)
@@ -631,8 +632,8 @@ def _add_training_completion_to_pdf(
     # Display visualized image (e.g., with click for GUI)
     if image_path_for_completion_pdf and os.path.exists(image_path_for_completion_pdf):
         try:
-            img = PILImage.open(image_path_for_completion_pdf)
-            img_width, img_height = img.size
+            with PILImage.open(image_path_for_completion_pdf) as img:
+                img_width, img_height = img.size
             aspect = img_height / float(img_width)
             display_width = 2.0 * inch
             display_height = display_width * aspect
