@@ -11,6 +11,9 @@ from qwen_vl_utils import process_vision_info
 from transformers.tokenization_utils_base import BatchEncoding
 from simple_grpo.datasets.gui_generator import (
     GUIGenerator as GUIGenerator,
+)
+from simple_grpo.prompt import (
+    create_prompt,
 )  # For plot_predictions type hint if GUI specific logic
 
 MAX_COMPLETIONS_PER_PAGE_PDF = 2
@@ -107,7 +110,7 @@ def selective_log_softmax(logits, index):
         logits.float(), dim=-1, index=index.unsqueeze(-1)
     ).squeeze(-1)
     # loop to reduce peak mem consumption
-    logsumexp_values = torch.logsumexp(selected_logits, dim=-1)
+    logsumexp_values = torch.stack([torch.logsumexp(lg, dim=-1) for lg in logits])
     per_token_logps = (
         selected_logits - logsumexp_values
     )  # log_softmax(x_i) = x_i - logsumexp(x)
@@ -147,20 +150,7 @@ def get_per_token_logps_vl(
 
     resulting to a very non-generic way to do this - TODO: make this better
     """
-
-    conversation = [
-        {
-            "role": "system",
-            "content": "You are Qwen, a virtual human developed by the Qwen Team, Alibaba Group. You are an expert image analyst.",
-        },
-        {
-            "role": "user",
-            "content": [
-                {"type": "image", "image": image_path},
-                {"type": "text", "text": prompt},
-            ],
-        },
-    ]
+    conversation = create_prompt(image_path, prompt)
 
     text = tokenizer.apply_chat_template(
         conversation, add_generation_prompt=True, tokenize=False, padding_side="left"
