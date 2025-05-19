@@ -1,61 +1,13 @@
-import re
-import torch
-import random
-import numpy as np
-
 from qwen_vl_utils import process_vision_info
+import torch
 from transformers.modeling_utils import PreTrainedModel
-from transformers.tokenization_utils_base import BatchEncoding
-from simple_grpo.datasets.gui_generator import (
-    GUIGenerator as GUIGenerator,
-)
 from simple_grpo.prompt import create_prompt
-from simple_grpo.utils.grpo import selective_log_softmax
-
-MAX_COMPLETIONS_PER_PAGE_PDF = 2
-MAX_PROMPT_LENGTH_PDF = 300  # Add the missing constant definition
-MAX_ANSWER_LENGTH_PDF = 200
-MAX_COMPLETION_LENGTH_PDF = 500
 
 
-####################
-## MISC FUNCTIONS ##
-####################
-def set_dtype(encoding: BatchEncoding, dtype: torch.dtype | str):
-    for k, v in encoding.items():
-        if isinstance(v, torch.Tensor):
-            encoding[k] = v.to(dtype)
-    return encoding
-
-
-def clean_spaces_preserve_newlines(text):
-    # Replace multiple spaces with a single space, but preserve newlines
-    lines = text.split("\n")  # Split by newlines
-    cleaned_lines = [
-        " ".join(re.split(r"\s+", line)).strip() for line in lines
-    ]  # Remove extra spaces in each line
-    return "\n".join(cleaned_lines)  # Join the lines back with newlines
-
-
-def seed_everything(seed: int) -> None:
-    """
-    Sets random seed for reproducibility across Python's random module,
-    NumPy, PyTorch (both CPU and CUDA), and configures CUDNN for deterministic
-    operation.
-    """
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(seed)
-
-    # Additional settings for reproducibility
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
-
-
-# Add set_seed (alias for seed_everything)
-set_seed = seed_everything
+@torch.compile(dynamic=True)
+def selective_log_softmax(logits, index):
+    logprobs = logits.log_softmax(dim=-1)
+    return torch.gather(logprobs, dim=-1, index=index.unsqueeze(-1)).squeeze(-1)
 
 
 ####################################################################################
@@ -143,8 +95,3 @@ def get_per_token_logps_vl(
     return selective_log_softmax(
         logits, input_ids
     )  #  compute logprobs for the input tokens
-
-
-########################
-## PDF/HTML/TEXT STUFF ##
-########################

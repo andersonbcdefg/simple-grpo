@@ -18,7 +18,7 @@ from transformers.generation.configuration_utils import GenerationConfig
 # Import necessary modules and constants for PDF generation in main
 from PIL import Image as PILImage
 from simple_grpo.prompt import create_prompt
-from simple_grpo.utils import MAX_COMPLETIONS_PER_PAGE_PDF
+from simple_grpo.utils import MAX_COMPLETIONS_PER_PAGE_PDF, seed_everything
 from simple_grpo.utils.plotter import plot_captcha_evaluation
 from simple_grpo.utils.reports import (
     PageBreak,
@@ -28,7 +28,13 @@ from simple_grpo.utils.reports import (
 )
 
 from simple_grpo import llms
-from simple_grpo import utils
+from simple_grpo.utils.logging import (
+    setup_eval_directories,
+    setup_training_log_directory,
+    calculate_and_log_final_metrics,
+    write_generation_log,
+)
+from simple_grpo.utils.grpo import get_per_token_logps_vl
 from simple_grpo import evaluator
 from simple_grpo.datasets import get_dataloaders, DataLoader as RLDataLoader
 from simple_grpo.datasets.gui_generator import GUIGenerator  # For PDF plotting
@@ -64,7 +70,7 @@ def eval_on_test_set(
     eval_temp_vis_dir = os.path.join(args.output_dir, "eval_logs", "temp_vis")
     os.makedirs(eval_temp_vis_dir, exist_ok=True)
 
-    _, pdf_dir, json_dir = utils._setup_eval_directories(args.output_dir)
+    _, pdf_dir, json_dir = setup_eval_directories(args.output_dir)
     # Sanitize experiment name for PDF filename (if present in args.output_dir)
     exp_name_sanitized = os.path.basename(os.path.normpath(args.output_dir)).replace(
         " ", "_"
@@ -207,9 +213,7 @@ def eval_on_test_set(
     doc.build(story)
     print(f"PDF report saved to {pdf_path}")
 
-    utils._calculate_and_log_final_metrics(
-        all_avg_scores, json_dir, round_num, args.verbose
-    )
+    calculate_and_log_final_metrics(all_avg_scores, json_dir, round_num, args.verbose)
 
     return (
         all_avg_scores,
@@ -474,7 +478,7 @@ def compute_loss(
 
     # Get reference model logits
     with torch.inference_mode():
-        ref_per_token_logps = utils.get_per_token_logps_vl(
+        ref_per_token_logps = get_per_token_logps_vl(
             base_model,
             prompt_completion_ids,
             attention_mask,
@@ -485,7 +489,7 @@ def compute_loss(
         )
 
     # Get training model logits
-    per_token_logps = utils.get_per_token_logps_vl(
+    per_token_logps = get_per_token_logps_vl(
         model,
         prompt_completion_ids,
         attention_mask,
@@ -587,7 +591,7 @@ def grpo_loss(
 
     log_file_name = f"round_{round_num}_batch_generations.txt"  # More descriptive name
     log_file = os.path.join(training_log_dir, log_file_name)
-    utils.write_generation_log(log_data, log_file)
+    write_generation_log(log_data, log_file)
 
     image_log_dir = os.path.join(training_log_dir, "images")
     os.makedirs(image_log_dir, exist_ok=True)
@@ -751,7 +755,7 @@ def parse_args():
 if __name__ == "__main__":
     args = parse_args()
 
-    utils.seed_everything(args.seed)
+    seed_everything(args.seed)
     device = "cuda" if torch.cuda.is_available() else "cpu"
     torch.backends.cuda.matmul.allow_bf16_reduced_precision_reduction = True
     torch.set_float32_matmul_precision("high")
@@ -774,10 +778,8 @@ if __name__ == "__main__":
         with open(args_path, "w") as f:
             json.dump(args_dict, f, indent=4)
 
-    eval_log_dir, eval_pdf_dir, eval_json_dir = utils._setup_eval_directories(
-        args.output_dir
-    )
-    train_log_dir = utils._setup_training_log_directory(args.output_dir)
+    eval_log_dir, eval_pdf_dir, eval_json_dir = setup_eval_directories(args.output_dir)
+    train_log_dir = setup_training_log_directory(args.output_dir)
     # Setup dirs for training PDF logs
     train_pdf_dir = os.path.join(train_log_dir, "pdfs")
     train_temp_vis_dir = os.path.join(train_log_dir, "temp_vis")
