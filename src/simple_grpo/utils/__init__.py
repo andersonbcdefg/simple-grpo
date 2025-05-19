@@ -85,36 +85,10 @@ def write_generation_log(log_data: dict[str, Any], log_file: str) -> None:
 ####################################################################################
 
 
-@torch.compile()
+@torch.compile(dynamic=True)
 def selective_log_softmax(logits, index):
-    """
-    A memory-efficient implementation of the common `log_softmax -> gather` operation.
-
-    This function is equivalent to the following naive implementation:
-    ```python
-    logps = torch.gather(logits.log_softmax(-1), dim=-1, index=index.unsqueeze(-1)).squeeze(-1)
-    ```
-
-    Args:
-        logits (`torch.Tensor`):
-            Logits tensor of shape `(..., num_classes)`.
-        index (`torch.Tensor`):
-            Index tensor of shape `(...)`, specifying the positions to gather from the log-softmax output.
-
-    Returns:
-        `torch.Tensor`:
-            Gathered log probabilities with the same shape as `index`.
-    """
-    orig_dtype = logits.dtype
-    selected_logits = torch.gather(
-        logits.float(), dim=-1, index=index.unsqueeze(-1)
-    ).squeeze(-1)
-    # loop to reduce peak mem consumption
-    logsumexp_values = torch.stack([torch.logsumexp(lg, dim=-1) for lg in logits])
-    per_token_logps = (
-        selected_logits - logsumexp_values
-    )  # log_softmax(x_i) = x_i - logsumexp(x)
-    return per_token_logps.to(orig_dtype)
+    logprobs = logits.log_softmax(dim=-1)
+    return torch.gather(logprobs, dim=-1, index=index.unsqueeze(-1)).squeeze(-1)
 
 
 def get_per_token_logps(model, input_ids, attention_mask, logits_to_keep):

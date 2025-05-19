@@ -17,6 +17,7 @@ from transformers.generation.configuration_utils import GenerationConfig
 
 # Import necessary modules and constants for PDF generation in main
 from PIL import Image as PILImage
+from simple_grpo.prompt import create_prompt
 from simple_grpo.utils import MAX_COMPLETIONS_PER_PAGE_PDF
 from simple_grpo.utils.plotter import plot_captcha_evaluation
 from simple_grpo.utils.reports import (
@@ -246,19 +247,7 @@ def generate_completions(
         prompt_text: The full formatted prompt text
     """
 
-    conversation = [
-        {
-            "role": "system",
-            "content": "You are Qwen, a virtual human developed by the Qwen Team, Alibaba Group. You are an expert image analyst.",
-        },
-        {
-            "role": "user",
-            "content": [
-                {"type": "image", "image": image_path},
-                {"type": "text", "text": prompt},
-            ],
-        },
-    ]
+    conversation = create_prompt(image_path, prompt)
 
     text = tokenizer.apply_chat_template(
         conversation, add_generation_prompt=True, tokenize=False
@@ -267,7 +256,7 @@ def generate_completions(
 
     # Ensure left padding for tokenizer/processor before tokenizing
     prompt_inputs = (
-        tokenizer(
+        tokenizer.__call__(
             text=[cast(str, text)],
             images=image_inputs,
             videos=video_inputs,
