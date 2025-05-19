@@ -29,7 +29,7 @@ from simple_grpo.utils.reports import (
 from simple_grpo import llms
 from simple_grpo import utils
 from simple_grpo import evaluator
-from simple_grpo.datasets import rldatasets
+from simple_grpo.datasets import get_dataloaders, DataLoader as RLDataLoader
 from simple_grpo.datasets.gui_generator import GUIGenerator  # For PDF plotting
 from simple_grpo.utils.process import _process_single_completion_for_eval
 
@@ -37,7 +37,7 @@ from simple_grpo.utils.process import _process_single_completion_for_eval
 def eval_on_test_set(
     model: PreTrainedModel,
     tokenizer: PreTrainedTokenizerBase,
-    test_loader: rldatasets.DataLoader,
+    test_loader: RLDataLoader,
     eval_class: evaluator.RewardEvaluator,
     device: str,
     args: argparse.Namespace,
@@ -216,6 +216,7 @@ def eval_on_test_set(
     )  # Return all avg scores and the specific main error metric value
 
 
+@torch.no_grad()
 def generate_completions(
     model: PreTrainedModel,
     tokenizer: PreTrainedTokenizerBase,
@@ -770,9 +771,7 @@ if __name__ == "__main__":
     base_model, _ = llms.get_llm_tokenizer(args.model_name_or_path, device)
 
     print(f"Loading dataset: {args.dataset_type}")
-    train_loader, test_loader = rldatasets.get_dataloaders(
-        args.dataset_type, dataset_size=10
-    )
+    train_loader, test_loader = get_dataloaders(args.dataset_type, dataset_size=10)
 
     print(f"Loading evaluator for: {args.dataset_type}")
     eval_class = evaluator.get_evaluator(args.dataset_type)

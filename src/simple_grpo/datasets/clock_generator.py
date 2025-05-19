@@ -71,9 +71,8 @@ class ClockGen:
             raise ValueError("ClockGen requires a TimeObj instance.")
         self.time_obj = time_obj
 
-    def generate_clock(self, filename="clock.png"):
+    def generate_clock(self, filename="clock.png", img_size: int = 224):
         # Define image properties
-        img_size = 224  # Standard size for many vision models
         center = (img_size // 2, img_size // 2)
         radius = img_size // 2 - 10  # Adjusted padding
         bg_color = "white"
@@ -170,7 +169,7 @@ class ClockGen:
         )
 
         # Save the image
-        img = img.resize((224, 224), Image.Resampling.LANCZOS)
+        img = img.resize((img_size, img_size), Image.Resampling.LANCZOS)
         img.save(filename)
         return img
 

@@ -7,7 +7,7 @@ This implementation heavily borrows from [Will Brown's  work](https://gist.githu
 
 The key difference in my implementation is computing the GRPO loss function directly rather than using external RL libraries, and reformatting into a multi script repo.
 
-I hope this might help other people understand things better, and maybe provide an easier way to try out smaller scale ideas etc. 
+I hope this might help other people understand things better, and maybe provide an easier way to try out smaller scale ideas etc.
 
 ## Installation
 ```
@@ -25,12 +25,12 @@ huggingface-cli login
 The system consists of several key modules:
 
 ### main.py
-Contains the core training loop implementing GRPO (Generalized Reward-Powered Optimization). Handles model training, evaluation, and metric tracking. 
+Contains the core training loop implementing GRPO (Generalized Reward-Powered Optimization). Handles model training, evaluation, and metric tracking.
 
-### llms.py 
+### llms.py
 Manages model loading and configuration, currently supporting LLaMA + Qwen models through Hugging Face's transformers library. Designed to be easily extensible to other model architectures.
 
-### rldatasets.py
+### __init__.py
 Handles dataset loading and preprocessing, currently focused on GSM8K math problems. Implements custom data loaders for both training and evaluation.
 
 ### evaluator.py
@@ -41,7 +41,7 @@ Training was conducted on a single H100 GPU. After ~400 training steps:
 
 ![Training Results](plots/train_score.png)
 
-And results on the validation set - this shows a clearer sign of learning: 
+And results on the validation set - this shows a clearer sign of learning:
 ![Eval Results](plots/eval_score.png)
 
 ## Clock Reading Task: Geometric Reasoning with VLMs
@@ -155,5 +155,3 @@ If you find this repository useful, please consider citing:
   url = {https://github.com/brendanhogan/DeepSeekRL-Extended}
 }
 ```
-
-

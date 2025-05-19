@@ -40,10 +40,14 @@ image = (
 # image = modal.Image.debian_slim(python_version="3.11")
 
 app = modal.App("deepseek-extended2")
+hf_cache_vol = modal.Volume.from_name("huggingface-cache", create_if_missing=True)
 
 
-@app.function(image=image, gpu="H100", timeout=60 * 60 * 5)
+@app.function(
+    image=image,
+    volumes={"/root/.cache/huggingface": hf_cache_vol},
+    gpu="H100",
+    timeout=60 * 60 * 5,
+)
 def run():
-    # print(os.listdir("."))
-    # print(os.listdir("/"))
-    subprocess.run(["python", "main.py"], cwd="/simple-grpo")
+    subprocess.run(["python", "main.py", "--num_chains=4"], cwd="/simple-grpo")
