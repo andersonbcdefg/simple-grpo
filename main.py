@@ -10,6 +10,10 @@ from tqdm import tqdm
 from typing import Any, cast
 from shutil import copyfile
 from collections import defaultdict
+import matplotlib.pyplot as plt
+import matplotlib
+
+matplotlib.use("Agg")  # Use non-interactive backend
 from qwen_vl_utils import process_vision_info
 from transformers.modeling_utils import PreTrainedModel
 from transformers.tokenization_utils_base import PreTrainedTokenizerBase
@@ -598,6 +602,146 @@ def grpo_loss(
     return loss, metrics, completions_text, rewards_per_func, advantages
 
 
+def plot_training_progress(output_dir: str, round_num: int):
+    """
+    Generate quick training progress plots during evaluation.
+    Saves plots to eval_logs/temp_vis for iterative monitoring.
+    """
+    try:
+        # Load training logs
+        train_logs_path = os.path.join(output_dir, "training_logs", "train_logs.json")
+        if not os.path.exists(train_logs_path):
+            print(f"Warning: Training log file not found at {train_logs_path}")
+            return
+
+        with open(train_logs_path, "r") as f:
+            train_logs = json.load(f)
+
+        if not train_logs:
+            print("Warning: Training logs are empty")
+            return
+
+        # Extract data
+        steps = sorted([int(x) for x in train_logs.keys() if int(x) <= round_num])
+        if not steps:
+            print("Warning: No training steps found")
+            return
+
+        # Create temp_vis directory
+        temp_vis_dir = os.path.join(output_dir, "eval_logs", "temp_vis")
+        os.makedirs(temp_vis_dir, exist_ok=True)
+
+        # Plot loss
+        if all("loss" in train_logs[str(step)] for step in steps):
+            loss_values = [train_logs[str(step)]["loss"] for step in steps]
+
+            plt.figure(figsize=(10, 6))
+            plt.plot(steps, loss_values, "b-", linewidth=2, alpha=0.7, label="Loss")
+
+            # Add moving average if enough points
+            if len(loss_values) >= 5:
+                window = min(10, len(loss_values) // 4)
+                if window >= 2:
+                    weights = [1.0] * window
+                    weights = [w / sum(weights) for w in weights]
+                    ma_values = []
+                    for i in range(window - 1, len(loss_values)):
+                        ma_val = sum(
+                            loss_values[i - j] * weights[j] for j in range(window)
+                        )
+                        ma_values.append(ma_val)
+                    ma_steps = steps[window - 1 :]
+                    plt.plot(
+                        ma_steps,
+                        ma_values,
+                        "r-",
+                        linewidth=3,
+                        label=f"Moving Avg (window={window})",
+                    )
+
+            plt.xlabel("Training Steps")
+            plt.ylabel("Loss")
+            plt.title(f"Training Loss (through round {round_num})")
+            plt.grid(True, alpha=0.3)
+            plt.legend()
+
+            loss_plot_path = os.path.join(
+                temp_vis_dir, f"training_loss_round_{round_num}.png"
+            )
+            plt.savefig(loss_plot_path, dpi=150, bbox_inches="tight")
+            plt.close()
+            print(f"Saved loss plot: {loss_plot_path}")
+
+        # Plot learning rate
+        if all("learning_rate" in train_logs[str(step)] for step in steps):
+            lr_values = [train_logs[str(step)]["learning_rate"] for step in steps]
+
+            plt.figure(figsize=(10, 6))
+            plt.plot(steps, lr_values, "g-", linewidth=2)
+            plt.xlabel("Training Steps")
+            plt.ylabel("Learning Rate")
+            plt.title(f"Learning Rate Schedule (through round {round_num})")
+            plt.grid(True, alpha=0.3)
+
+            lr_plot_path = os.path.join(
+                temp_vis_dir, f"learning_rate_round_{round_num}.png"
+            )
+            plt.savefig(lr_plot_path, dpi=150, bbox_inches="tight")
+            plt.close()
+            print(f"Saved learning rate plot: {lr_plot_path}")
+
+        # Plot reward if available
+        reward_keys = [
+            key for key in train_logs[str(steps[0])].keys() if "reward" in key.lower()
+        ]
+        for reward_key in reward_keys[:1]:  # Just plot the first reward metric found
+            if all(reward_key in train_logs[str(step)] for step in steps):
+                reward_values = [train_logs[str(step)][reward_key] for step in steps]
+
+                plt.figure(figsize=(10, 6))
+                plt.plot(
+                    steps, reward_values, "m-", linewidth=2, alpha=0.7, label=reward_key
+                )
+
+                # Add moving average
+                if len(reward_values) >= 5:
+                    window = min(10, len(reward_values) // 4)
+                    if window >= 2:
+                        weights = [1.0] * window
+                        weights = [w / sum(weights) for w in weights]
+                        ma_values = []
+                        for i in range(window - 1, len(reward_values)):
+                            ma_val = sum(
+                                reward_values[i - j] * weights[j] for j in range(window)
+                            )
+                            ma_values.append(ma_val)
+                        ma_steps = steps[window - 1 :]
+                        plt.plot(
+                            ma_steps,
+                            ma_values,
+                            "orange",
+                            linewidth=3,
+                            label="Moving Avg",
+                        )
+
+                plt.xlabel("Training Steps")
+                plt.ylabel("Reward")
+                plt.title(f"Training Reward: {reward_key} (through round {round_num})")
+                plt.grid(True, alpha=0.3)
+                plt.legend()
+
+                reward_plot_path = os.path.join(
+                    temp_vis_dir, f"training_reward_round_{round_num}.png"
+                )
+                plt.savefig(reward_plot_path, dpi=150, bbox_inches="tight")
+                plt.close()
+                print(f"Saved reward plot: {reward_plot_path}")
+                break
+
+    except Exception as e:
+        print(f"Warning: Failed to generate training progress plots: {e}")
+
+
 def parse_args():
     parser = argparse.ArgumentParser(description="GRPO training arguments")
 
@@ -822,6 +966,10 @@ if __name__ == "__main__":
                     f,
                     indent=4,
                 )
+
+            # Generate training progress plots
+            print(f"Generating training progress plots through round {round_num}...")
+            plot_training_progress(args.output_dir, round_num)
 
         # --- Training Step --- (Run every round)
         try:
