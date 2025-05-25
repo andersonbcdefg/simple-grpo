@@ -1190,6 +1190,16 @@ if __name__ == "__main__":
         grad_norm = total_norm**0.5
         train_metrics["grad_norm"] = float(grad_norm)
 
+        # Debug: Check for any tensors in train_metrics
+        for key, value in train_metrics.items():
+            if torch.is_tensor(value):
+                print(
+                    f"WARNING: Found tensor in train_metrics['{key}']: {type(value)} with shape {value.shape}"
+                )
+                train_metrics[key] = (  # type: ignore
+                    value.item() if value.numel() == 1 else value.tolist()
+                )
+
         train_metrics_total[round_num] = train_metrics
         with open(os.path.join(train_log_dir, "train_logs.json"), "w") as f:
             json.dump(train_metrics_total, f, indent=4)
