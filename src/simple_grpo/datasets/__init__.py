@@ -4,6 +4,7 @@ Data loader for generating analog clock images and times.
 
 import random
 import os
+import uuid
 from typing import Any
 from abc import ABC, abstractmethod
 from simple_grpo.datasets.clock_generator import TimeObj, ClockGen
@@ -81,7 +82,6 @@ class ClockDataLoader(DataLoader):
         dataset_size (int): The nominal size of the dataset (used for testing length).
         is_train (bool): Flag indicating if this is a training loader.
         prompt (str): The instruction prompt for the language model.
-        temp_image_path (str): Path where the temporary clock image is saved.
     """
 
     def __init__(self, dataset_size: int = 50, is_train: bool = True) -> None:
@@ -89,7 +89,6 @@ class ClockDataLoader(DataLoader):
         self.dataset_size = dataset_size
         self.is_train = is_train
         self.prompt = CLOCK_PROMPT
-        self.temp_image_path = "temp_clock.png"  # Fixed path for the temporary image
 
     def __len__(self) -> int:
         # Return the specified size, mainly relevant for the test set iteration count
@@ -109,14 +108,15 @@ class ClockDataLoader(DataLoader):
         # Generate a random time
         time_obj = TimeObj()
 
-        # Generate the clock image
+        # Generate the clock image with unique filename
+        unique_filename = f"temp_clock_{uuid.uuid4().hex[:8]}.png"
         clock_gen = ClockGen(time_obj)
-        clock_gen.generate_clock(filename=self.temp_image_path)
+        clock_gen.generate_clock(filename=unique_filename)
 
         # Get the time string in [HH:MM:SS] format
         time_string = str(time_obj)
 
-        return self.temp_image_path, time_string
+        return unique_filename, time_string
 
     def reset(self):
         self.current_index = 0
@@ -162,9 +162,6 @@ class CorrelationScatterDataLoader(DataLoader):
         self.dataset_size = dataset_size
         self.is_train = is_train
         self.prompt = CORRELATION_PROMPT
-        self.temp_image_path = (
-            "temp_correlation.png"  # Fixed path for the temporary image
-        )
         self.num_points = 75  # Standard number of points for correlation plots
         self.image_size = (224, 224)  # Standard size
 
@@ -184,18 +181,19 @@ class CorrelationScatterDataLoader(DataLoader):
         # Generate a random R value between 0.00 and 1.00
         r_value = random.uniform(0.0, 1.0)
 
-        # Generate the scatter plot image and save it to the temp path
+        # Generate the scatter plot image with unique filename
+        unique_filename = f"temp_correlation_{uuid.uuid4().hex[:8]}.png"
         generate_correlation_plot(
             r_value=r_value,
             num_points=self.num_points,
-            filename=self.temp_image_path,  # Save to temp path
+            filename=unique_filename,
             img_size=self.image_size,
         )
 
         # Format the R value string to X.XX
         r_string = f"{r_value:.2f}"
 
-        return self.temp_image_path, r_string  # Return path and label
+        return unique_filename, r_string  # Return path and label
 
     def reset(self):
         self.current_index = 0
@@ -248,7 +246,6 @@ class GUIDataLoader(DataLoader):
         self.dataset_size = dataset_size
         self.is_train = is_train
         self.gui_generator = GUIGenerator(width=image_width, height=image_height)
-        self.temp_image_path = "temp_gui_scene.png"
         self.prompt_template = GUI_PROMPT_TEMPLATE
         self.prompt = ""
         self.hard_mode_prob = hard_mode_prob
@@ -304,7 +301,9 @@ class GUIDataLoader(DataLoader):
                 "Failed to generate a GUI scene with any identifiable target element after multiple retries."
             )
 
-        gui_image.save(self.temp_image_path)
+        # Save with unique filename
+        unique_filename = f"temp_gui_scene_{uuid.uuid4().hex[:8]}.png"
+        gui_image.save(unique_filename)
 
         target_object_name_for_prompt = target_info["name"].replace("_", " ")
         self.prompt = self.prompt_template.format(
@@ -321,7 +320,7 @@ class GUIDataLoader(DataLoader):
             "is_hard": use_hard_mode,
         }
 
-        return self.temp_image_path, answer_for_evaluator
+        return unique_filename, answer_for_evaluator
 
     def reset(self):
         self.current_index = 0

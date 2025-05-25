@@ -41,13 +41,21 @@ image = (
 
 app = modal.App("deepseek-extended2")
 hf_cache_vol = modal.Volume.from_name("huggingface-cache", create_if_missing=True)
+outputs_vol = modal.Volume.from_name("simple-grpo-results", create_if_missing=True)
 
 
 @app.function(
     image=image,
-    volumes={"/root/.cache/huggingface": hf_cache_vol},
+    volumes={"/root/.cache/huggingface": hf_cache_vol, "/outputs": outputs_vol},
     gpu="H100",
     timeout=60 * 60 * 5,
 )
 def run():
-    subprocess.run(["python", "main.py", "--num_chains=4"], cwd="/simple-grpo")
+    import time
+
+    now = round(time.time())
+    output_dir = f"/outputs/{now}"
+    subprocess.run(
+        ["python", "main.py", "--num_chains=4", f"--output_dir={output_dir}"],
+        cwd="/simple-grpo",
+    )
