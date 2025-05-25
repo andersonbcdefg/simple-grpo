@@ -1,4 +1,6 @@
-# DeepSeek R1 Implementation
+# Simple GRPO Implementation
+
+Fork of Brendan Hogan's GRPO repository, which is also MIT-licensed.
 
 ## Motivation
 I wanted to recreate DeepSeek R1's  results at a smaller scale, focusing on understanding the core mechanics by implementing everything from scratch. So this is a repo that trains Qwen1.5B on the [grade school math dataset](https://github.com/openai/grade-school-math).

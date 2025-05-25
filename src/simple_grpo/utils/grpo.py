@@ -40,7 +40,7 @@ def get_per_token_logps_vl(
     model, input_ids, attention_mask, image_path, tokenizer, logits_to_keep, prompt
 ):
     """
-    We have the input ids - all the correct tokens including all chate templates/special tokens etc
+    We have the input ids - all the correct tokens including all chat templates/special tokens etc
     We just need to include the image - and have the same sort of obj to pass to the model to generate
     the logits
 

@@ -442,51 +442,38 @@ def score_completions(
 
 def compute_loss(
     model: PreTrainedModel,
-    base_model: PreTrainedModel,
     prompt_completion_ids: torch.Tensor,
     prompt_ids: torch.Tensor,
     completion_ids: torch.Tensor,
     attention_mask: torch.Tensor,
     completion_mask: torch.Tensor,
     advantages: torch.Tensor,
-    args: argparse.Namespace,
     img_path: str,
     tokenizer: PreTrainedTokenizerBase,
     prompt: str,
 ) -> tuple[torch.Tensor, dict[str, float]]:
     """
-    Compute the GRPO loss between current and base model.
+    Compute the GRPO loss.
 
     Args:
         model: The current model being trained
-        base_model: The reference model to compare against
         prompt_completion_ids: Combined prompt and completion token IDs
         prompt_ids: Token IDs for just the prompt
         completion_ids: Token IDs for just the completion
         attention_mask: Attention mask for the full sequence
         completion_mask: Mask indicating which tokens are from the completion
         advantages: Advantage values for each sequence
-        args: Training arguments
+        img_path: Path to the image
+        tokenizer: Tokenizer for the model
+        prompt: Text prompt
 
     Returns:
         loss: The computed GRPO loss
-        metrics: dictionary containing additional metrics like KL divergence
+        metrics: dictionary containing additional metrics
     """
 
     # Only need the generated tokens' logits
     logits_to_keep = completion_ids.size(1)
-
-    # Get reference model logits
-    with torch.inference_mode():
-        ref_per_token_logps = get_per_token_logps_vl(
-            base_model,
-            prompt_completion_ids,
-            attention_mask,
-            img_path,
-            tokenizer,
-            logits_to_keep,
-            prompt,
-        )
 
     # Get training model logits
     per_token_logps = get_per_token_logps_vl(
@@ -499,18 +486,11 @@ def compute_loss(
         prompt,
     )
 
-    # Compute KL divergence
-    per_token_kl = (
-        torch.exp(ref_per_token_logps - per_token_logps)
-        - (ref_per_token_logps - per_token_logps)
-        - 1
-    )
-
-    # Compute loss with advantages
+    # Compute loss with advantages - simplified GRPO without KL penalty
     per_token_loss = torch.exp(
         per_token_logps - per_token_logps.detach()
     ) * advantages.unsqueeze(1)
-    per_token_loss = -(per_token_loss - args.kl_weight_beta * per_token_kl)
+    per_token_loss = -per_token_loss
     loss = (
         (per_token_loss * completion_mask).sum(dim=1) / completion_mask.sum(dim=1)
     ).mean()
@@ -519,17 +499,12 @@ def compute_loss(
     metrics = {}
     response_length = completion_mask.sum(1).float().mean().item()
     metrics["response_length"] = response_length
-    mean_kl = (
-        (per_token_kl * completion_mask).sum(dim=1) / completion_mask.sum(dim=1)
-    ).mean()
-    metrics["kl"] = mean_kl.item()
 
     return loss, metrics
 
 
 def grpo_loss(
     model: PreTrainedModel,
-    base_model: PreTrainedModel,
     tokenizer: PreTrainedTokenizerBase,
     # For GUI, prompt_info_or_static_prompt will be target_details_dict
     # For Clock/Corr, it will be the static prompt string from the loader
@@ -607,14 +582,12 @@ def grpo_loss(
     # Ensure current_prompt_text is used for get_per_token_logps_vl if it relies on it
     loss, loss_metrics = compute_loss(
         model,
-        base_model,
         prompt_completion_ids,
         prompt_ids,
         completion_ids,
         attention_mask,
         completion_mask,
         advantages,
-        args,
         img_path,
         tokenizer,
         current_prompt_text,
@@ -692,23 +665,6 @@ def parse_args():
         default=0.18,
         help="Percentage of total steps for warmup",
     )
-    parser.add_argument(
-        "--update_ref_model",
-        action="store_true",
-        help="Whether to update reference model",
-    )
-    parser.add_argument(
-        "--update_ref_model_freq",
-        type=int,
-        default=200,
-        help="How often to update reference model",
-    )
-    parser.add_argument(
-        "--ref_model_mixup_alpha",
-        type=float,
-        default=0.1,
-        help="Alpha parameter for reference model mixup",
-    )
 
     # Generation parameters
     parser.add_argument(
@@ -743,9 +699,6 @@ def parse_args():
         default=3000,
         help="Number of training iterations",
     )
-    parser.add_argument(
-        "--kl_weight_beta", type=float, default=0.04, help="KL penalty weight"
-    )
     parser.add_argument("--seed", type=int, default=7111994, help="Random seed")
 
     args = parser.parse_args()
@@ -761,7 +714,6 @@ if __name__ == "__main__":
     torch.set_float32_matmul_precision("high")
 
     model, tokenizer = llms.get_llm_tokenizer(args.model_name_or_path, device)
-    base_model, _ = llms.get_llm_tokenizer(args.model_name_or_path, device)
 
     print(f"Loading dataset: {args.dataset_type}")
     train_loader, test_loader = get_dataloaders(args.dataset_type, dataset_size=10)
@@ -809,8 +761,6 @@ if __name__ == "__main__":
             print(f"Resuming training from checkpoint: {args.resume_from_checkpoint}")
             checkpoint = torch.load(args.resume_from_checkpoint, map_location=device)
             model.load_state_dict(checkpoint["model_state_dict"])
-            if "base_model_state_dict" in checkpoint:
-                base_model.load_state_dict(checkpoint["base_model_state_dict"])
             optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
             scheduler.load_state_dict(checkpoint["scheduler_state_dict"])
             start_round = checkpoint["round_num"] + 1
@@ -873,17 +823,6 @@ if __name__ == "__main__":
                     indent=4,
                 )
 
-        # --- Reference Model Update --- (Run periodically)
-        if args.update_ref_model and (round_num + 1) % args.update_ref_model_freq == 0:
-            with torch.no_grad():
-                for param, ref_param in zip(
-                    model.parameters(), base_model.parameters()
-                ):
-                    ref_param.data = (
-                        args.ref_model_mixup_alpha * param.data
-                        + (1 - args.ref_model_mixup_alpha) * ref_param.data
-                    )
-
         # --- Training Step --- (Run every round)
         try:
             batch = next(train_loader)
@@ -896,7 +835,6 @@ if __name__ == "__main__":
         # Perform GRPO step and get data needed for potential PDF logging
         loss, train_metrics, completions_text, rewards_per_func, advantages = grpo_loss(
             model,
-            base_model,
             tokenizer,
             data_for_grpo,
             img_path,
@@ -940,7 +878,6 @@ if __name__ == "__main__":
                 {
                     "round_num": round_num,
                     "model_state_dict": model.state_dict(),
-                    "base_model_state_dict": base_model.state_dict(),
                     "optimizer_state_dict": optimizer.state_dict(),
                     "scheduler_state_dict": scheduler.state_dict(),
                     "args": args,
