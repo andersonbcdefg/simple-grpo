@@ -1188,7 +1188,8 @@ if __name__ == "__main__":
                 param_norm = p.grad.data.norm(2)
                 total_norm += param_norm.item() ** 2
         grad_norm = total_norm**0.5
-        train_metrics["grad_norm"] = grad_norm
+        train_metrics["grad_norm"] = float(grad_norm)
+
         train_metrics_total[round_num] = train_metrics
         with open(os.path.join(train_log_dir, "train_logs.json"), "w") as f:
             json.dump(train_metrics_total, f, indent=4)
