@@ -1173,7 +1173,7 @@ if __name__ == "__main__":
             )
 
         # --- Logging Training Metrics --- (Run every round)
-        train_metrics["learning_rate"] = scheduler.get_last_lr()[0]
+        train_metrics["learning_rate"] = float(scheduler.get_last_lr()[0])
         train_metrics["loss"] = (
             loss.item() * args.gradient_accumulation_steps
         )  # Log un-normalized loss for the step
@@ -1189,16 +1189,6 @@ if __name__ == "__main__":
                 total_norm += param_norm.item() ** 2
         grad_norm = total_norm**0.5
         train_metrics["grad_norm"] = float(grad_norm)
-
-        # Debug: Check for any tensors in train_metrics
-        for key, value in train_metrics.items():
-            if torch.is_tensor(value):
-                print(
-                    f"WARNING: Found tensor in train_metrics['{key}']: {type(value)} with shape {value.shape}"
-                )
-                train_metrics[key] = (  # type: ignore
-                    value.item() if value.numel() == 1 else value.tolist()
-                )
 
         train_metrics_total[round_num] = train_metrics
         with open(os.path.join(train_log_dir, "train_logs.json"), "w") as f:
