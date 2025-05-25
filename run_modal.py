@@ -29,7 +29,7 @@ image = (
         "packaging",
         "ninja",
     )
-    .pip_install("hf_xet")
+    .pip_install("hf_xet", "torchao")
     .run_commands(
         "git clone -b captcha --single-branch https://github.com/andersonbcdefg/simple-grpo.git ",
         "cd simple-grpo && pip install -e .",

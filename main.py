@@ -5,6 +5,7 @@ Implementation of GRPO, DeepSeek style training without external libraries
 import os
 import json
 import torch
+from torchao.optim import AdamW8bit
 import argparse
 from tqdm import tqdm
 from typing import Any, cast
@@ -882,7 +883,7 @@ if __name__ == "__main__":
     os.makedirs(train_pdf_dir, exist_ok=True)
     os.makedirs(train_temp_vis_dir, exist_ok=True)
 
-    optimizer = torch.optim.AdamW(
+    optimizer = AdamW8bit(
         model.parameters(),
         lr=args.learning_rate,
         betas=(args.adam_beta1, args.adam_beta2),
