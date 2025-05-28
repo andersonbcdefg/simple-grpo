@@ -1099,19 +1099,20 @@ if __name__ == "__main__":
                                 completion_text
                             )
                             if parsed_click:
-                                pil_img = PILImage.open(log_data["img_path"])
-                                plot_data = [
-                                    {
-                                        "name": "VLM Click",
-                                        "center_x": parsed_click[0],
-                                        "center_y": parsed_click[1],
-                                        "is_truth": False,
-                                    }
-                                ]
-                                img_w_click = GUIGenerator.plot_predictions(
-                                    pil_img, plot_data, pred_color="red"
-                                )
-                                img_w_click.save(vis_train_img_path)
+                                with PILImage.open(log_data["img_path"]) as pil_img:
+                                    plot_data = [
+                                        {
+                                            "name": "VLM Click",
+                                            "center_x": parsed_click[0],
+                                            "center_y": parsed_click[1],
+                                            "is_truth": False,
+                                        }
+                                    ]
+                                    img_w_click = GUIGenerator.plot_predictions(
+                                        pil_img, plot_data, pred_color="red"
+                                    )
+                                    img_w_click.save(vis_train_img_path)
+                                    img_w_click.close()
                                 img_path_for_pdf_entry = vis_train_img_path
                             else:
                                 img_path_for_pdf_entry = log_data[
